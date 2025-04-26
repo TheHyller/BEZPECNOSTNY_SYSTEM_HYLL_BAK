@@ -114,3 +114,32 @@ def is_locked_out():
     except Exception as e:
         logging.error(f"Chyba pri kontrole lockout stavu: {e}")
         return False
+
+def reset_system_state():
+    """Reset the system to fix any issues while preserving armed/disarmed state."""
+    try:
+        # Load the current state to preserve armed mode
+        current_state = load_state()
+        armed_mode = current_state.get("armed_mode", "disarmed")
+        
+        # Create a clean state
+        state = DEFAULT_STATE.copy()
+        state["last_updated"] = datetime.now().isoformat()
+        
+        # Preserve the armed mode
+        state["armed_mode"] = armed_mode
+        
+        # Reset the problematic countdown/alarm states
+        state["alarm_countdown_active"] = False
+        state["alarm_countdown_deadline"] = None
+        state["alarm_trigger_message"] = None
+        state["alarm_countdown_remaining"] = 0
+        state["alarm_active"] = False
+        state["lockout_until"] = None
+        
+        logging.info(f"Resetting system state while preserving armed mode: {armed_mode}")
+        save_state(state)
+        return True
+    except Exception as e:
+        logging.error(f"Error resetting system state: {e}")
+        return False

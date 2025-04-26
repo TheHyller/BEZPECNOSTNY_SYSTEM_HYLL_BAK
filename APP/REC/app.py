@@ -14,7 +14,7 @@ import os
 import time
 import socket
 from web_app import app as flask_app
-from config.system_state import load_state, save_state, is_locked_out, set_lockout, update_state
+from config.system_state import load_state, save_state, is_locked_out, set_lockout, update_state, reset_system_state
 from config.settings import load_settings
 from mqtt_client import mqtt_client
 import notification_service as ns
@@ -49,6 +49,9 @@ class SecurityApp(MDApp):
     def build(self):
         self.title = "Domáci bezpečnostný systém"
         self.sm = ScreenManager()
+        
+        # Reset system state to fix any stuck countdown issues
+        reset_system_state()
         
         # Nastavenie témy aplikácie - výraznejšie farby pre lepšiu viditeľnosť
         self.theme_cls.primary_palette = "Blue"

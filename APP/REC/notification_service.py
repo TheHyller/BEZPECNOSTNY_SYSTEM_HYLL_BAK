@@ -434,6 +434,7 @@ def start_alarm_countdown(trigger_message):
         # Zobrazenie dialógu pre deaktiváciu
         try:
             from kivy.clock import Clock
+
             def show_disarm_dialog(dt):
                 try:
                     from kivy.app import App
@@ -441,12 +442,20 @@ def start_alarm_countdown(trigger_message):
                     if hasattr(app, 'sm'):
                         dashboard = app.sm.get_screen('dashboard')
                         if hasattr(dashboard, 'stop_alarm'):
+                            logging.info("Zobrazujem dialóg pre deaktiváciu alarmu")
+                            # Force switch to dashboard screen to ensure dialog is visible
+                            app.sm.current = 'dashboard'
                             dashboard.stop_alarm()
+                        else:
+                            logging.error("Metóda stop_alarm na dashboard obrazovke nie je dostupná")
+                    else:
+                        logging.error("Screen manager 'sm' nie je dostupný v aplikácii")
                 except Exception as e:
-                    logging.error(f"Failed to show disarm dialog: {e}")
+                    logging.error(f"Zlyhalo zobrazenie dialógu pre deaktiváciu: {e}")
             
             # Zobrazenie dialógu s miernym oneskorením
             Clock.schedule_once(show_disarm_dialog, 0.5)
+            
         except Exception as e:
             logging.error(f"Chyba pri zobrazovaní dialógu pre deaktiváciu: {e}")
         
@@ -454,7 +463,7 @@ def start_alarm_countdown(trigger_message):
     except Exception as e:
         logging.error(f"Chyba pri spúšťaní odpočítavania alarmu: {e}")
         return False
-        
+
 def stop_alarm_countdown():
     """Zastaví odpočítavanie pred aktiváciou alarmu."""
     global _alarm_countdown_active, _alarm_countdown_deadline, _alarm_trigger_message

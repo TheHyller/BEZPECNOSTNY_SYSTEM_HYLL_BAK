@@ -144,6 +144,12 @@ function updateUI() {
         const countdownDeadline = state.alarm_countdown_deadline || 0;
         const triggerMessage = state.alarm_trigger_message || '';
         
+        // Explicitly hide countdown if not active
+        if (!countdownActive && !alarmActive) {
+            countdown.style.display = 'none';
+            countdown.innerText = '';
+        }
+        
         // Automaticky zatvoriť PIN dialóg, ak stav systému už nevyžaduje PIN
         // (niekto deaktivoval systém z iného rozhrania)
         if (pinSection.style.display !== 'none') {

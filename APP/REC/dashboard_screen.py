@@ -150,8 +150,10 @@ class DashboardScreen(MDScreen):
         # Automaticky zatvoriť PIN dialóg, ak už nie je potrebný (napr. pri deaktivácii z iného rozhrania)
         if hasattr(self, 'pin_dialog') and self.pin_dialog:
             if self.current_action == "stop_alarm" and not self.alarm_active:
-                self.pin_dialog.dismiss()
-                self.pin_dialog = None
+                # Zatvoriť dialóg iba ak nie je ani alarm ani odpočítavanie aktívne
+                if not alarm_countdown_active:
+                    self.pin_dialog.dismiss()
+                    self.pin_dialog = None
             elif self.current_action == "disarm" and not self.system_armed and not alarm_countdown_active:
                 self.pin_dialog.dismiss()
                 self.pin_dialog = None

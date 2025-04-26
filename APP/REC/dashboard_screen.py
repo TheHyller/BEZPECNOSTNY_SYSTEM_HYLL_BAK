@@ -311,11 +311,12 @@ class DashboardScreen(MDScreen):
         self.show_pin_dialog("stop_alarm")
     
     def _stop_alarm(self):
-        """Zastaví aktívny alarm."""
+        """Zastaví aktívny alarm a deaktivuje zabezpečenie systému."""
         if self.alarm_active:
-            # Zastavenie alarmu, ale ponechanie systému v zabezpečenom režime
+            # Zastavenie alarmu a deaktivácia systému
             ns.stop_alarm()
-            ns.send_notification("Alarm bol zastavený")
+            update_state({"armed_mode": "disarmed"})
+            ns.send_notification("Alarm bol zastavený a systém deaktivovaný")
             
             # Aktualizácia UI
             self.update_from_state()

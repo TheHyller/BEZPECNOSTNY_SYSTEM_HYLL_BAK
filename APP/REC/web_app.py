@@ -183,7 +183,7 @@ def api_disarm_system():
 
 @app.route('/api/system/alarm/stop', methods=['POST'])
 def api_stop_alarm():
-    """API endpoint pre zastavenie alarmu (bez deaktivácie systému)."""
+    """API endpoint pre zastavenie alarmu a deaktiváciu systému."""
     try:
         # Kontrola PIN kódu
         data = request.get_json()
@@ -193,15 +193,16 @@ def api_stop_alarm():
         if pin != settings.get('pin_code'):
             return jsonify({"success": False, "message": "Nesprávny PIN kód!"}), 401
         
-        # Zastavenie alarmu bez deaktivácie systému
+        # Zastavenie alarmu a deaktivácia systému
         ns.stop_alarm()
+        update_state({"armed_mode": "disarmed"})
         
         # Odoslanie notifikácie
-        ns.send_notification("Alarm zastavený, systém zostáva zabezpečený")
+        ns.send_notification("Alarm zastavený a systém deaktivovaný")
         
         return jsonify({
             "success": True, 
-            "message": "Alarm zastavený, systém zostáva zabezpečený"
+            "message": "Alarm zastavený a systém deaktivovaný"
         })
     except Exception as e:
         app.logger.error(f"Chyba pri zastavovaní alarmu: {e}")

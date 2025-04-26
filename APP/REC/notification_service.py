@@ -6,7 +6,7 @@ import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from config.system_state import load_state, update_state
 from config.settings import load_settings
@@ -34,9 +34,32 @@ _alarm_duration_threshold = 59  # 60 sekúnd
 _alarm_duration_email_sent = False
 _alarm_duration_monitor_thread = None
 
+# Premenné pre alarm countdown
+_alarm_countdown_active = False
+_alarm_countdown_thread = None
+_alarm_countdown_deadline = None
+_alarm_trigger_message = None
+_alarm_countdown_duration = 60  # Sekundy do spustenia alarmu po narušení
+
 def is_alarm_active():
     """Vráti informáciu, či je alarm práve aktívny."""
     return _alarm_active
+
+def is_alarm_countdown_active():
+    """Vráti informáciu, či beží odpočítavanie alarmu."""
+    return _alarm_countdown_active
+
+def get_alarm_countdown_seconds():
+    """Vráti počet zostávajúcich sekúnd do spustenia alarmu."""
+    if not _alarm_countdown_active or not _alarm_countdown_deadline:
+        return 0
+    
+    remaining = _alarm_countdown_deadline - time.time()
+    return max(0, int(remaining))
+
+def get_alarm_trigger_message():
+    """Vráti správu o príčine alarmu."""
+    return _alarm_trigger_message
 
 def play_alarm():
     """Spustí zvukový alarm."""
@@ -72,10 +95,14 @@ def play_alarm():
         return False
 
 def stop_alarm():
-    """Zastaví zvukový alarm."""
+    """Zastaví zvukový alarm a odčítavanie alarmu."""
     global _alarm_active
     
     try:
+        # Zastavenie odpočítavania, ak je aktívne
+        if _alarm_countdown_active:
+            stop_alarm_countdown()
+            
         # Zmena stavu alarmu
         _alarm_active = False
         update_state({"alarm_active": False})
@@ -330,15 +357,24 @@ def _check_sensor_triggers(armed_mode):
                     trigger_alarm = True
                     trigger_message = f"Otvorené okno v miestnosti {room_name}"
             
-            # Ak bol detekovaný alarm, spustiť ho
+            # Ak bol detekovaný alarm, spravujeme ho podľa aktuálneho stavu systému
             if trigger_alarm and trigger_message:
                 system_state = load_state()
                 
-                # Ak alarm ešte nie je aktívny, aktivujeme ho
-                if not system_state.get('alarm_active', False):
-                    logging.warning(f"Spúšťa sa alarm: {trigger_message}")
-                    send_notification(trigger_message, level="danger")
-                    play_alarm()
+                # Ak už prebieha odpočítavanie, len pridáme upozornenie bez reštartovania odpočítavania
+                if (_alarm_countdown_active or system_state.get('alarm_countdown_active', False)) and not _alarm_active:
+                    logging.warning(f"Dodatočná udalosť počas odpočítavania: {trigger_message}")
+                    add_alert(f"Dodatočná udalosť počas odpočítavania: {trigger_message}", level="warning")
+                    
+                    # Aktualizujeme len správu o príčine, ale NEREŠTARTUJEME odpočítavanie
+                    update_additional_trigger_message(trigger_message)
+                
+                # Ak alarm ešte nie je aktívny ani neprebieha odpočítavanie, spustíme nové odpočítavanie
+                elif (not system_state.get('alarm_active', False) and 
+                    not system_state.get('alarm_countdown_active', False) and
+                    not _alarm_countdown_active and not _alarm_active):
+                    logging.warning(f"Spúšťa sa odpočítavanie alarmu: {trigger_message}")
+                    start_alarm_countdown(trigger_message)
         
         # Uloženie aktuálnych stavov pre ďalšie porovnanie
         _last_sensor_states = current_states.copy()
@@ -349,3 +385,126 @@ def _check_sensor_triggers(armed_mode):
 def add_alert(message, level="info", image_path=None):
     """Pridá upozornenie do logu upozornení."""
     return add_alert_log(message, level, image_path)
+
+def start_alarm_countdown(trigger_message):
+    """Spustí odpočítavanie pred aktiváciou alarmu."""
+    global _alarm_countdown_active, _alarm_countdown_thread, _alarm_countdown_deadline, _alarm_trigger_message
+    
+    if _alarm_countdown_active:
+        return False  # Odpočítavanie už beží
+    
+    if _alarm_active:
+        return False  # Alarm už je aktívny
+        
+    try:
+        # Nastavenie stavu odpočítavania
+        _alarm_countdown_active = True
+        _alarm_countdown_deadline = time.time() + _alarm_countdown_duration
+        _alarm_trigger_message = trigger_message
+        
+        # Aktualizácia systémového stavu
+        update_state({
+            "alarm_countdown_active": True,
+            "alarm_countdown_deadline": _alarm_countdown_deadline,
+            "alarm_trigger_message": trigger_message
+        })
+        
+        # Pridanie upozornenia o začatí odpočítavania
+        countdown_message = f"POZOR: {trigger_message}. Máte {_alarm_countdown_duration} sekúnd na deaktiváciu systému."
+        add_alert(countdown_message, level="warning")
+        
+        # Spustenie monitorovania odpočítavania v samostatnom vlákne
+        _alarm_countdown_thread = threading.Thread(target=_monitor_alarm_countdown, daemon=True)
+        _alarm_countdown_thread.start()
+        
+        logging.info(f"Spustené odpočítavanie alarmu: {_alarm_countdown_duration} sekúnd")
+        
+        # Zobrazenie dialógu pre deaktiváciu
+        try:
+            from kivy.clock import Clock
+            def show_disarm_dialog(dt):
+                try:
+                    from kivy.app import App
+                    app = App.get_running_app()
+                    if hasattr(app, 'sm'):
+                        dashboard = app.sm.get_screen('dashboard')
+                        if hasattr(dashboard, 'stop_alarm'):
+                            dashboard.stop_alarm()
+                except Exception as e:
+                    logging.error(f"Failed to show disarm dialog: {e}")
+            
+            # Zobrazenie dialógu s miernym oneskorením
+            Clock.schedule_once(show_disarm_dialog, 0.5)
+        except Exception as e:
+            logging.error(f"Chyba pri zobrazovaní dialógu pre deaktiváciu: {e}")
+        
+        return True
+    except Exception as e:
+        logging.error(f"Chyba pri spúšťaní odpočítavania alarmu: {e}")
+        return False
+        
+def stop_alarm_countdown():
+    """Zastaví odpočítavanie pred aktiváciou alarmu."""
+    global _alarm_countdown_active, _alarm_countdown_deadline, _alarm_trigger_message
+    
+    try:
+        # Zastavenie odpočítavania
+        _alarm_countdown_active = False
+        _alarm_countdown_deadline = None
+        _alarm_trigger_message = None
+        
+        # Aktualizácia systémového stavu
+        update_state({
+            "alarm_countdown_active": False,
+            "alarm_countdown_deadline": None,
+            "alarm_trigger_message": None
+        })
+        
+        logging.info("Odpočítavanie alarmu zastavené")
+        return True
+    except Exception as e:
+        logging.error(f"Chyba pri zastavovaní odpočítavania alarmu: {e}")
+        return False
+
+def _monitor_alarm_countdown():
+    """Monitoruje odpočítavanie a aktivuje alarm po jeho skončení."""
+    global _alarm_countdown_active, _alarm_countdown_deadline, _alarm_trigger_message
+    
+    while _alarm_countdown_active and time.time() < _alarm_countdown_deadline:
+        # Aktualizácia zostávajúceho času v systémovom stave
+        remaining = max(0, int(_alarm_countdown_deadline - time.time()))
+        update_state({"alarm_countdown_remaining": remaining})
+        time.sleep(1)
+    
+    # Ak je odpočítavanie stále aktívne (nebolo manuálne zastavené)
+    if _alarm_countdown_active:
+        logging.warning("Odpočítavanie ukončené, spúšťa sa alarm")
+        
+        # Deaktivácia odpočítavania
+        _alarm_countdown_active = False
+        update_state({"alarm_countdown_active": False})
+        
+        # Aktivácia alarmu
+        trigger_message = _alarm_trigger_message or "Nedeaktivovaný alarm po odpočítavaní"
+        send_notification(f"ALARM: {trigger_message}", level="danger")
+        play_alarm()
+
+def update_additional_trigger_message(new_message):
+    """Aktualizuje správu o príčinách alarmu bez reštartovania odpočítavania."""
+    global _alarm_trigger_message
+    
+    # Ak už existuje správa, pridáme novú na koniec
+    if _alarm_trigger_message:
+        # Ak už správa neobsahuje túto informáciu, pridáme ju
+        if new_message not in _alarm_trigger_message:
+            _alarm_trigger_message = f"{_alarm_trigger_message}; {new_message}"
+            
+            # Aktualizujeme aj v systémovom stave
+            update_state({"alarm_trigger_message": _alarm_trigger_message})
+            logging.info(f"Aktualizovaná správa o príčine alarmu: {_alarm_trigger_message}")
+    else:
+        # Ak nemáme žiadnu správu, nastavíme ju
+        _alarm_trigger_message = new_message
+        update_state({"alarm_trigger_message": _alarm_trigger_message})
+        
+    return _alarm_trigger_message

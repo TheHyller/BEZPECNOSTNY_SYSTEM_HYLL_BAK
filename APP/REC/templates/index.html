@@ -139,6 +139,9 @@ function updateUI() {
         // Aktualizácia režimu systému
         const armedMode = state.armed_mode || 'disarmed';
         const alarmActive = state.alarm_active || false;
+        const countdownActive = state.alarm_countdown_active || false;
+        const countdownDeadline = state.alarm_countdown_deadline || 0;
+        const triggerMessage = state.alarm_trigger_message || '';
         
         // Aktualizácia nadpisu stavu
         if (alarmActive) {
@@ -146,27 +149,66 @@ function updateUI() {
             statusPanel.className = "status-panel status-alarm";
             systemMode.innerText = "ALARM";
             systemMode.className = "sensor-value alert";
+            
+            // Zobraziť stop alarm tlačidlo a dialog
+            if (stopAlarmBtn) {
+                stopAlarmBtn.disabled = false;
+            }
+            
+            // Ak je alarm aktívny, automaticky zobraziť PIN dialóg
+            if (pinSection.style.display === 'none' && !state.lockout_until) {
+                showPinDialog('stopAlarm');
+            }
+            
+            // Automaticky zobraziť detaily alarmu v správe
+            if (triggerMessage && !msg.innerText) {
+                msg.innerText = triggerMessage;
+            }
+        } else if (countdownActive) {
+            // Zobrazenie odpočtu do spustenia alarmu
+            const remainingSeconds = Math.max(0, Math.ceil(countdownDeadline - Date.now()/1000));
+            status.innerText = `POZOR! Máte ${remainingSeconds} sekúnd na deaktiváciu systému`;
+            statusPanel.className = "status-panel status-alarm";
+            systemMode.innerText = "ODPOČET ALARMU";
+            systemMode.className = "sensor-value alert";
+            
+            // Zobraziť countdown a trigger message
+            countdown.innerText = `${remainingSeconds}s do spustenia alarmu: ${triggerMessage}`;
+            countdown.style.display = '';
+            
+            // Zobraziť disarm tlačidlo a dialog
+            if (disarmBtn) {
+                disarmBtn.disabled = false;
+            }
+            
+            // Ak je odpočítavanie aktívne, automaticky zobraziť PIN dialóg
+            if (pinSection.style.display === 'none' && !state.lockout_until) {
+                showPinDialog('disarm');
+            }
         } else if (armedMode === 'armed_home') {
             status.innerText = "Systém zabezpečený - režim Doma";
             statusPanel.className = "status-panel status-armed-home";
             systemMode.innerText = "ZABEZPEČENÝ (DOMA)";
             systemMode.className = "sensor-value";
+            countdown.style.display = 'none';
         } else if (armedMode === 'armed_away') {
             status.innerText = "Systém zabezpečený - režim Preč";
             statusPanel.className = "status-panel status-armed-away";
             systemMode.innerText = "ZABEZPEČENÝ (PREČ)";
             systemMode.className = "sensor-value";
+            countdown.style.display = 'none';
         } else {
             status.innerText = "Systém nezabezpečený";
             statusPanel.className = "status-panel status-disarmed";
             systemMode.innerText = "NEZABEZPEČENÝ";
             systemMode.className = "sensor-value";
+            countdown.style.display = 'none';
         }
         
         // Aktualizácia tlačidiel
-        armHomeBtn.disabled = armedMode !== 'disarmed' || alarmActive;
-        armAwayBtn.disabled = armedMode !== 'disarmed' || alarmActive;
-        disarmBtn.disabled = armedMode === 'disarmed';
+        armHomeBtn.disabled = armedMode !== 'disarmed' || alarmActive || countdownActive;
+        armAwayBtn.disabled = armedMode !== 'disarmed' || alarmActive || countdownActive;
+        disarmBtn.disabled = armedMode === 'disarmed' && !countdownActive;
         stopAlarmBtn.disabled = !alarmActive;
         
         // Kontrola lockout stavu
@@ -174,7 +216,7 @@ function updateUI() {
             const remainingLockout = Math.ceil(state.lockout_until - Date.now()/1000);
             msg.innerText = `Zamknuté, skúste neskôr. (${remainingLockout}s)`;
             pinSection.style.display = 'none';
-        } else {
+        } else if (!msg.innerText) {
             msg.innerText = '';
         }
         

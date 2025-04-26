@@ -97,7 +97,6 @@
     <!-- Navigačné menu -->
     <div class="nav-menu">
         <a href="/">Dashboard</a>
-        <a href="/sensors">Senzory</a>
         <a href="/alerts">Upozornenia</a>
         <a href="/mqtt" class="active">MQTT Monitor</a>
     </div>
@@ -177,6 +176,9 @@
     <!-- Zoznam zariadení -->
     <div id="deviceList" class="device-list">
         <div class="card-title">Pripojené zariadenia</div>
+        <div class="actions" style="margin: 10px 0;">
+            <button class="btn btn-danger" onclick="clearDevices()">Vymazať všetky zariadenia</button>
+        </div>
         <div id="deviceListItems">
             <div class="loading">Načítavam zariadenia...</div>
         </div>
@@ -356,6 +358,26 @@ function updateDevices() {
             document.getElementById('deviceListItems').innerHTML = 
                 '<div class="error-message">Nepodarilo sa načítať informácie o zariadeniach.</div>';
         });
+}
+
+// Vymazanie všetkých zariadení
+function clearDevices() {
+    fetch('/api/mqtt/devices/clear', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Všetky zariadenia boli vymazané.', false);
+            updateDevices();
+        } else {
+            showMessage('Chyba pri vymazávaní zariadení: ' + data.message, true);
+        }
+    })
+    .catch(error => {
+        console.error('Chyba pri vymazávaní zariadení:', error);
+        showMessage('Chyba pri odosielaní požiadavky na vymazanie zariadení', true);
+    });
 }
 
 // Vykonanie inicializácie pri načítaní stránky

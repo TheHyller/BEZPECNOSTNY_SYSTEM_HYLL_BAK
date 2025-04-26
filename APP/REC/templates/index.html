@@ -47,7 +47,6 @@
     <!-- Navigačné menu -->
     <div class="nav-menu">
         <a href="/" class="active">Dashboard</a>
-        <a href="/sensors">Senzory</a>
         <a href="/alerts">Upozornenia</a>
         <a href="/mqtt">MQTT Monitor</a>
     </div>
@@ -115,6 +114,8 @@ let systemState = {}; // Bude obsahovať aktuálny stav systému
 
 function updateUI() {
     fetch('/api/state').then(r=>r.json()).then(state => {
+        // Keep previous state to detect changes
+        const prevState = structuredClone(systemState);
         systemState = state;
         
         // Cache DOM elements
@@ -142,6 +143,21 @@ function updateUI() {
         const countdownActive = state.alarm_countdown_active || false;
         const countdownDeadline = state.alarm_countdown_deadline || 0;
         const triggerMessage = state.alarm_trigger_message || '';
+        
+        // Automaticky zatvoriť PIN dialóg, ak stav systému už nevyžaduje PIN
+        // (niekto deaktivoval systém z iného rozhrania)
+        if (pinSection.style.display !== 'none') {
+            if (currentAction === 'stopAlarm' && !alarmActive) {
+                pinSection.style.display = 'none';
+                msg.innerText = 'Alarm bol deaktivovaný z iného rozhrania';
+                setTimeout(() => { msg.innerText = ''; }, 3000);
+            } 
+            else if (currentAction === 'disarm' && armedMode === 'disarmed' && !countdownActive) {
+                pinSection.style.display = 'none';
+                msg.innerText = 'Systém bol deaktivovaný z iného rozhrania';
+                setTimeout(() => { msg.innerText = ''; }, 3000);
+            }
+        }
         
         // Aktualizácia nadpisu stavu
         if (alarmActive) {

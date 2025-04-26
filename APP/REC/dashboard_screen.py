@@ -144,11 +144,24 @@ class DashboardScreen(MDScreen):
         self.armed_mode = state.get('armed_mode', 'disarmed')
         self.system_armed = self.armed_mode != 'disarmed'
         self.alarm_active = state.get('alarm_active', False)
+        alarm_countdown_active = state.get('alarm_countdown_active', False)
         self.last_update = time.strftime("%H:%M:%S", time.localtime())
+        
+        # Automaticky zatvoriť PIN dialóg, ak už nie je potrebný (napr. pri deaktivácii z iného rozhrania)
+        if hasattr(self, 'pin_dialog') and self.pin_dialog:
+            if self.current_action == "stop_alarm" and not self.alarm_active:
+                self.pin_dialog.dismiss()
+                self.pin_dialog = None
+            elif self.current_action == "disarm" and not self.system_armed and not alarm_countdown_active:
+                self.pin_dialog.dismiss()
+                self.pin_dialog = None
         
         # Nastavenie textu stavu
         if self.alarm_active:
             self.status_text = "ALARM AKTÍVNY! Narušenie detekované!"
+        elif alarm_countdown_active:
+            countdown_remaining = max(0, int(state.get('alarm_countdown_deadline', 0) - time.time()))
+            self.status_text = f"POZOR! Odpočítavanie alarmu: {countdown_remaining}s"
         elif self.armed_mode == 'armed_home':
             self.status_text = "Systém zabezpečený - režim Doma"
         elif self.armed_mode == 'armed_away':

@@ -96,12 +96,24 @@ def play_alarm():
 
 def stop_alarm():
     """Zastaví zvukový alarm a odčítavanie alarmu."""
-    global _alarm_active
+    global _alarm_active, _alarm_countdown_active, _alarm_countdown_deadline, _alarm_trigger_message
     
     try:
         # Zastavenie odpočítavania, ak je aktívne
         if _alarm_countdown_active:
-            stop_alarm_countdown()
+            _alarm_countdown_active = False
+            _alarm_countdown_deadline = None
+            _alarm_trigger_message = None
+            
+            # Aktualizácia systémového stavu
+            update_state({
+                "alarm_countdown_active": False,
+                "alarm_countdown_deadline": None,
+                "alarm_trigger_message": None,
+                "alarm_countdown_remaining": 0
+            })
+            
+            logging.info("Odpočítavanie alarmu zastavené")
             
         # Zmena stavu alarmu
         _alarm_active = False

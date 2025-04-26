@@ -52,10 +52,6 @@ def on_mqtt_message(topic, payload):
 def index():
     return render_template('index.html')
 
-@app.route('/sensors')
-def sensors_page():
-    return render_template('sensors.html')
-
 @app.route('/alerts')
 def alerts_page():
     return render_template('alerts.html')
@@ -359,6 +355,34 @@ def api_mqtt_devices():
     return jsonify({
         'devices': list(mqtt_stats['connected_devices'].values())
     })
+
+@app.route('/api/mqtt/devices/clear', methods=['POST'])
+def api_mqtt_devices_clear():
+    """Vymaže zoznam všetkých MQTT zariadení zo systému"""
+    try:
+        mqtt_stats['connected_devices'] = {}
+        
+        # Resetovať pripojenia prostredníctvom MQTT príkazov na všetky zariadenia
+        for topic in mqtt_client.config['topics'].values():
+            if mqtt_client.connected:
+                # Odoslanie broadcast príkazu na resetovanie zariadení
+                mqtt_client.client.publish(f"{topic}/broadcast", json.dumps({
+                    "command": "RECONNECT",
+                    "timestamp": datetime.now().isoformat()
+                }))
+        
+        # Reštartovať MQTT klienta
+        mqtt_stats['reconnect_count'] += 1
+        mqtt_client.stop()
+        time.sleep(1)  # Krátke oneskorenie pre ukončenie spojenia
+        mqtt_client.config = mqtt_client._load_config()
+        mqtt_client.start()
+        
+        return jsonify({'success': True, 'message': 'Zoznam zariadení bol vymazaný a rozoslané príkazy na opätovné pripojenie'})
+    except Exception as e:
+        mqtt_stats['last_error'] = str(e)
+        app.logger.error(f"Chyba pri vymazávaní zoznamu zariadení: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/mqtt/config', methods=['GET', 'POST'])
 def api_mqtt_config():

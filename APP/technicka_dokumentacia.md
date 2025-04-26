@@ -160,6 +160,7 @@ Systém využíva konfiguráciu založenú na JSON a ukladanie stavov:
 - `data/system_state.json`: Systémové stavové premenné
 - `data/settings.json`: Používateľsky konfigurovateľné systémové parametre
 - `data/alerts.log`: Chronologický záznam bezpečnostných udalostí
+- `data/mqtt_config.json`: Konfiguračné nastavenia MQTT pripojenia
 
 ### 5.2 Ukladanie obrázkov
 
@@ -186,6 +187,26 @@ Webové rozhranie založené na Flasku poskytuje možnosti vzdialeného prístup
 - Responzívny dizajn pre prístup z rôznych zariadení
 - Vizualizácia stavu MQTT
 - Prehľadové panely stavu senzorov
+- REST API pre integráciu s externými systémami
+
+#### 6.2.1 Webové API Endpointy
+
+Systém poskytuje rozsiahle REST API pre interakciu s bezpečnostným systémom:
+
+- **GET /api/sensors**: Získanie aktuálneho stavu všetkých senzorov
+- **GET /api/state**: Získanie aktuálneho stavu bezpečnostného systému
+- **POST /api/system/arm**: Aktivácia zabezpečenia v konkrétnom režime (armed_home/armed_away)
+- **POST /api/system/disarm**: Deaktivácia zabezpečovacieho systému
+- **POST /api/system/alarm/stop**: Zastavenie aktívneho alarmu a deaktivácia systému
+- **GET /api/alerts**: Získanie histórie upozornení
+- **POST /api/alerts/clear**: Vymazanie histórie upozornení
+- **GET /api/image**: Získanie obrázkov z alertov
+- **GET /api/mqtt/status**: Informácie o stave MQTT pripojenia
+- **GET /api/mqtt/devices**: Zoznam všetkých MQTT zariadení a ich stavov
+- **POST /api/mqtt/devices/clear**: Vymazanie zoznamu MQTT zariadení a obnovenie pripojení
+- **GET, POST /api/mqtt/config**: Získanie alebo nastavenie MQTT konfigurácie
+- **POST /api/mqtt/reconnect**: Opätovné pripojenie MQTT klienta
+- **POST /api/mqtt/command**: Odoslanie príkazu na konkrétne zariadenie cez MQTT
 
 ## 7. Technické detaily implementácie
 
@@ -215,6 +236,7 @@ Systém implementuje niekoľko bezpečnostných opatrení:
 - Autentifikácia pre MQTT aj webové rozhrania
 - Last Will and Testament (LWT) pre spoľahlivé sledovanie stavu zariadení
 - Konfigurovateľné úrovne kvality služieb pre garancie doručenia správ
+- Mechanizmus odstupňovaného zamykania po viacerých neúspešných pokusoch o zadanie PIN kódu
 
 ## 8. Konfiguračné parametre
 
@@ -272,10 +294,11 @@ Parametre senzorov sú konfigurované prostredníctvom priradení GPIO pinov a n
 
 Systém definuje niekoľko prevádzkových stavov:
 
-- **Deaktivovaný**: Monitorovanie aktívne, ale bez generovania upozornení
-- **Aktivovaný domáci režim**: Perimetrické senzory aktívne, vnútorné pohybové senzory neaktívne
-- **Aktivovaný režim neprítomnosti**: Všetky senzory aktívne s rozšíreným oneskorením vstupu
-- **Poplach**: Detekované aktívne porušenie bezpečnosti, spustené notifikácie
+- **Deaktivovaný (disarmed)**: Monitorovanie aktívne, ale bez generovania upozornení
+- **Aktivovaný domáci režim (armed_home)**: Perimetrické senzory aktívne (dvere, okná), vnútorné pohybové senzory neaktívne, umožňuje pohyb v dome
+- **Aktivovaný režim neprítomnosti (armed_away)**: Všetky senzory aktívne s rozšíreným oneskorením vstupu, plné zabezpečenie
+- **Odpočítavanie alarmu (alarm_countdown_active)**: Prechodný stav po detekcii narušenia, umožňuje deaktiváciu pred spustením poplachu
+- **Poplach (alarm_active)**: Detekované aktívne porušenie bezpečnosti, spustené notifikácie a audio alarm
 
 ### 10.2 Spracovanie udalostí
 
@@ -283,9 +306,23 @@ Systém spracováva udalosti podľa nasledujúceho pracovného postupu:
 
 1. Aktivácia senzora generuje MQTT správu
 2. Prijímač spracováva správu vzhľadom na aktuálny stav systému
-3. Ak sú splnené podmienky poplachu, spustí sa notifikačná sekvencia
-4. Udalosť sa zaznamená do trvalého úložiska
-5. Prvky UI sa aktualizujú tak, aby odrážali aktuálny stav
+3. Ak sú splnené podmienky pre spustenie odpočítavania alarmu:
+   - Začína sa odpočítavanie do poplachu (zvyčajne 60 sekúnd)
+   - Používateľ má čas na deaktiváciu systému zadaním správneho PIN kódu
+4. Ak sa systém nedeaktivuje počas odpočítavania:
+   - Aktivuje sa plný poplach
+   - Spustí sa zvuková signalizácia
+   - Odošlú sa notifikácie
+5. Udalosť sa zaznamená do trvalého úložiska
+6. Prvky UI sa aktualizujú tak, aby odrážali aktuálny stav
+
+### 10.3 Notifikačný systém
+
+Systém poskytuje viacúrovňové notifikácie:
+
+- Vizuálne upozornenia v Kivy a webovom rozhraní
+- Zvukové upozornenia pre kritické udalosti
+- Možnosť integrácie s externými notifikačnými systémami
 
 ## 11. Rozšíriteľnosť
 

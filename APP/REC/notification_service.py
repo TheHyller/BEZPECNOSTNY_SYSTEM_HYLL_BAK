@@ -28,13 +28,19 @@ _monitoring_thread = None
 _monitoring_active = False
 _last_sensor_states = {}
 
+# Premenné pre sledovanie dlhotrvajúceho alarmu
+_alarm_start_time = None
+_alarm_duration_threshold = 59  # 60 sekúnd
+_alarm_duration_email_sent = False
+_alarm_duration_monitor_thread = None
+
 def is_alarm_active():
     """Vráti informáciu, či je alarm práve aktívny."""
     return _alarm_active
 
 def play_alarm():
     """Spustí zvukový alarm."""
-    global _alarm_active, _alarm_thread
+    global _alarm_active, _alarm_thread, _alarm_start_time, _alarm_duration_email_sent, _alarm_duration_monitor_thread
     
     if _alarm_active:
         return  # Alarm už beží
@@ -48,10 +54,16 @@ def play_alarm():
         # Nastavenie stavu alarmu v systéme
         update_state({"alarm_active": True})
         _alarm_active = True
+        _alarm_start_time = time.time()
+        _alarm_duration_email_sent = False
         
         # Spustenie alarmu v samostatnom vlákne
         _alarm_thread = threading.Thread(target=_alarm_sound_loop, daemon=True)
         _alarm_thread.start()
+        
+        # Spustenie monitorovania trvania alarmu
+        _alarm_duration_monitor_thread = threading.Thread(target=_monitor_alarm_duration, daemon=True)
+        _alarm_duration_monitor_thread.start()
         
         logging.info("Alarm bol spustený")
         return True
@@ -105,6 +117,25 @@ def _alarm_sound_loop():
     except Exception as e:
         logging.error(f"Chyba pri prehrávaní zvuku alarmu: {e}")
 
+def _monitor_alarm_duration():
+    """Monitoruje trvanie alarmu a odosiela upozornenie, ak trvá príliš dlho."""
+    global _alarm_active, _alarm_start_time, _alarm_duration_threshold, _alarm_duration_email_sent
+    
+    while _alarm_active:
+        try:
+            if _alarm_start_time:
+                elapsed_time = time.time() - _alarm_start_time
+                if elapsed_time > _alarm_duration_threshold and not _alarm_duration_email_sent:
+                    # Odoslanie upozornenia o dlhotrvajúcom alarme
+                    send_notification(
+                        f"Alarm beží už viac ako {elapsed_time:.0f} sekúnd.",
+                        level="warning"
+                    )
+                    _alarm_duration_email_sent = True
+            time.sleep(1)
+        except Exception as e:
+            logging.error(f"Chyba pri monitorovaní trvania alarmu: {e}")
+
 def send_notification(message, level="info", image_path=None):
     """Odosiela notifikáciu užívateľovi."""
     try:
@@ -118,6 +149,16 @@ def send_notification(message, level="info", image_path=None):
         # Ak sú povolené e-mailové notifikácie a ide o dôležitú notifikáciu
         if notification_prefs.get("email", False) and level in ["warning", "danger"]:
             send_email(message, settings)
+        
+        # Kontrola stavu systému a spustenie alarmu ak je systém zabezpečený a notifikácia je dôležitá
+        if level in ["warning", "danger", "alert"]:
+            system_state = load_state()
+            armed_mode = system_state.get('armed_mode', 'disarmed')
+            
+            # Ak je systém zabezpečený a alarm ešte nie je aktívny, spustíme ho
+            if armed_mode != 'disarmed' and not system_state.get('alarm_active', False):
+                logging.warning(f"Spúšťa sa alarm na základe notifikácie: {message}")
+                play_alarm()
         
         logging.info(f"Notifikácia odoslaná: {message}")
         return True

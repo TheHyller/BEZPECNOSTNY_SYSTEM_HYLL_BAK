@@ -174,7 +174,7 @@ Príspevky sú vítané! Ak chcete prispieť:
 Tento projekt je distribuovaný pod licenciou MIT. Pre viac informácií si pozrite súbor [LICENSE](LICENSE).
 
 ## 📞 Kontakt
-Meno Autora - [hyll@hylllab.eu](mailto:hyll@hylllab.eu)
+Branislav Hýll - [hyll@hylllab.eu](mailto:hyll@hylllab.eu)
 
 Project Link: [https://github.com/Hyller/home-security-system](https://github.com/Hyller/home-security-system)
 

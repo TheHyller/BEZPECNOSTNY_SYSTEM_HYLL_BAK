@@ -1,0 +1,7 @@
+{
+    "rpi_sensor_1": {
+        "motion": "IDLE",
+        "door": "CLOSED",
+        "window": "CLOSED"
+    }
+}

@@ -1,0 +1,153 @@
+<SettingsScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: "16dp"
+        spacing: "8dp"
+        
+        MDTopAppBar:
+            title: "Nastavenia"
+            elevation: 4
+            pos_hint: {"top": 1}
+            left_action_items: [["arrow-left", lambda x: root.go_back()]]
+            
+        ScrollView:
+            do_scroll_x: False
+            
+            MDBoxLayout:
+                orientation: 'vertical'
+                padding: "16dp"
+                spacing: "16dp"
+                size_hint_y: None
+                height: self.minimum_height
+                
+                MDGridLayout:
+                    cols: 2
+                    spacing: "8dp"
+                    size_hint_y: None
+                    height: self.minimum_height
+                    
+                    # PIN
+                    MDLabel:
+                        text: "PIN kód:"
+                        size_hint_y: None
+                        height: "48dp"
+                        
+                    MDBoxLayout:
+                        size_hint_y: None
+                        height: "48dp"
+                        spacing: "8dp"
+                        
+                        MDTextField:
+                            id: pin_input
+                            text: root.pin_code
+                            hint_text: "PIN kód (min. 4 číslice)"
+                            password: True
+                            size_hint_x: 0.7
+                            
+                        MDRaisedButton:
+                            text: "Uložiť"
+                            on_release: root.update_pin_code(pin_input.text)
+                            size_hint_x: 0.3
+                            
+                # Notifikácie
+                MDSeparator:
+                    height: "1dp"
+                    
+                MDLabel:
+                    text: "Nastavenia notifikácií"
+                    font_style: "H6"
+                    size_hint_y: None
+                    height: "48dp"
+                
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: "48dp"
+                    
+                    MDLabel:
+                        text: "Zvukové notifikácie"
+                        
+                    MDSwitch:
+                        active: root.sound_notifications
+                        on_active: root.sound_notifications = self.active
+                        
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: "48dp"
+                    
+                    MDLabel:
+                        text: "Email notifikácie"
+                        
+                    MDSwitch:
+                        active: root.email_notifications
+                        on_active: root.email_notifications = self.active
+                
+                # Email nastavenia
+                MDSeparator:
+                    height: "1dp"
+                    
+                MDLabel:
+                    text: "Nastavenia emailu"
+                    font_style: "H6"
+                    size_hint_y: None
+                    height: "48dp"
+                
+                MDBoxLayout:
+                    size_hint_y: None
+                    height: "48dp"
+                    
+                    MDLabel:
+                        text: "Povoliť email"
+                        
+                    MDSwitch:
+                        active: root.email_enabled
+                        on_active: root.email_enabled = self.active
+                
+                MDTextField:
+                    hint_text: "SMTP server"
+                    text: root.smtp_server
+                    on_text: root.smtp_server = self.text
+                    size_hint_y: None
+                    height: "48dp"
+                    disabled: not root.email_enabled
+                
+                MDTextField:
+                    hint_text: "SMTP port"
+                    text: root.smtp_port
+                    input_filter: "int"
+                    on_text: root.smtp_port = self.text
+                    size_hint_y: None
+                    height: "48dp"
+                    disabled: not root.email_enabled
+                
+                MDTextField:
+                    hint_text: "Emailová adresa (odosielateľ)"
+                    text: root.email_username
+                    on_text: root.email_username = self.text
+                    size_hint_y: None
+                    height: "48dp"
+                    disabled: not root.email_enabled
+                
+                MDTextField:
+                    hint_text: "Heslo"
+                    text: root.email_password
+                    password: True
+                    on_text: root.email_password = self.text
+                    size_hint_y: None
+                    height: "48dp"
+                    disabled: not root.email_enabled
+                
+                MDTextField:
+                    hint_text: "Príjemca"
+                    text: root.email_recipient
+                    on_text: root.email_recipient = self.text
+                    size_hint_y: None
+                    height: "48dp"
+                    disabled: not root.email_enabled
+                
+                MDRaisedButton:
+                    text: "Uložiť email nastavenia"
+                    on_release: root.update_email_settings()
+                    disabled: not root.email_enabled
+                    pos_hint: {"center_x": .5}
+                    size_hint_x: None
+                    width: "250dp"

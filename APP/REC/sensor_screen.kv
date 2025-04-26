@@ -1,0 +1,30 @@
+<SensorScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: "16dp"
+        spacing: "8dp"
+        
+        MDTopAppBar:
+            title: "Stav senzorov"
+            elevation: 4
+            pos_hint: {"top": 1}
+            left_action_items: [["arrow-left", lambda x: root.go_back()]]
+            
+        BoxLayout:
+            orientation: 'vertical'
+            padding: "8dp"
+            
+            ScrollView:
+                do_scroll_x: False
+                
+                MDList:
+                    id: sensors_list
+                    padding: "8dp"
+            
+            MDLabel:
+                text: root.last_update
+                font_style: "Caption"
+                size_hint_y: None
+                height: self.texture_size[1]
+                halign: "right"
+                padding: "8dp", "4dp"

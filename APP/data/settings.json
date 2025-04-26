@@ -1,0 +1,15 @@
+{
+  "pin_code": "1234",
+  "notification_preferences": {
+    "sound": true,
+    "email": false
+  },
+  "email_settings": {
+    "enabled": false,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "username": "vas@email.sk",
+    "password": "",
+    "recipient": "vas@email.sk"
+  }
+}

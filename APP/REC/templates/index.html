@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>Domáci bezpečnostný systém</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 480px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        h2 { text-align: center; margin-top: 0; }
+        .status { margin: 16px 0; text-align: center; font-size: 1.1em; }
+        .status-panel { padding: 12px; margin: 12px 0; border-radius: 4px; text-align: center; }
+        .status-disarmed { background-color: #3f51b5; color: white; }
+        .status-armed-home { background-color: #009688; color: white; }
+        .status-armed-away { background-color: #009688; color: white; }
+        .status-alarm { background-color: #d32f2f; color: white; animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0.7; } }
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+        .numpad button { font-size: 1.3em; padding: 16px; border: none; border-radius: 4px; background: #607d8b; color: #fff; cursor: pointer; }
+        .numpad button:active { background: #455a64; }
+        .actions { text-align: center; margin-top: 16px; }
+        .action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; }
+        .action-grid button { padding: 12px 8px; font-size: 1em; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 8px; }
+        .arm-home { background: #009688; color: #fff; }
+        .arm-away { background: #ff9800; color: #fff; }
+        .disarm { background: #3f51b5; color: #fff; }
+        .alarm-stop { background: #d32f2f; color: #fff; }
+        button:disabled { background: #bdbdbd !important; color: #757575 !important; }
+        .msg { color: #d32f2f; text-align: center; min-height: 24px; }
+        .countdown { color: #d32f2f; font-size: 1.2em; font-weight: bold; text-align: center; margin-bottom: 12px; }
+        .sensor-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 16px 0; }
+        .sensor-stat { text-align: center; padding: 8px; border-radius: 4px; background: #f5f5f5; }
+        .sensor-label { font-size: 0.9em; color: #555; }
+        .sensor-value { font-size: 1.5em; font-weight: bold; }
+        .sensor-value.alert { color: #d32f2f; }
+        .nav-menu { display: flex; justify-content: center; margin-bottom: 20px; }
+        .nav-menu a { padding: 10px 15px; text-decoration: none; color: #455a64; font-weight: bold; border-radius: 4px; }
+        .nav-menu a:hover { background-color: #f0f0f0; }
+        .nav-menu a.active { background-color: #009688; color: #fff; }
+        .update-time { text-align: center; font-size: 0.8em; color: #777; margin-top: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Domáci bezpečnostný systém</h2>
+    
+    <!-- Navigačné menu -->
+    <div class="nav-menu">
+        <a href="/" class="active">Dashboard</a>
+        <a href="/sensors">Senzory</a>
+        <a href="/alerts">Upozornenia</a>
+        <a href="/mqtt">MQTT Monitor</a>
+    </div>
+    
+    <!-- Status panel -->
+    <div id="statusPanel" class="status-panel status-disarmed">
+        <div class="status" id="status">Načítavam stav systému...</div>
+    </div>
+    
+    <!-- Sensor statistics -->
+    <div class="sensor-stats">
+        <div class="sensor-stat">
+            <div class="sensor-label">Zariadenia</div>
+            <div class="sensor-value" id="deviceCount">0</div>
+        </div>
+        <div class="sensor-stat">
+            <div class="sensor-label">Aktívne zariadenia</div>
+            <div class="sensor-value" id="deviceOnlineCount">0</div>
+        </div>
+        <div class="sensor-stat">
+            <div class="sensor-label">Aktivované senzory</div>
+            <div class="sensor-value" id="triggeredSensors">0</div>
+        </div>
+        <div class="sensor-stat">
+            <div class="sensor-label">Stav systému</div>
+            <div class="sensor-value" id="systemMode">-</div>
+        </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-grid">
+        <button id="armHomeBtn" class="arm-home">Aktivovať - Režim Doma</button>
+        <button id="armAwayBtn" class="arm-away">Aktivovať - Režim Preč</button>
+        <button id="disarmBtn" class="disarm">Deaktivovať systém</button>
+        <button id="stopAlarmBtn" class="alarm-stop">Zastaviť alarm</button>
+    </div>
+    
+    <!-- PIN section -->
+    <div id="pinSection" style="display:none;">
+        <div class="status">Zadajte PIN kód</div>
+        <div class="countdown" id="countdown"></div>
+        <input type="password" id="pinInput" readonly style="width:100%;font-size:1.5em;text-align:center;margin-bottom:8px;" />
+        <div class="numpad">
+            <button onclick="pressNum(1)">1</button>
+            <button onclick="pressNum(2)">2</button>
+            <button onclick="pressNum(3)">3</button>
+            <button onclick="pressNum(4)">4</button>
+            <button onclick="pressNum(5)">5</button>
+            <button onclick="pressNum(6)">6</button>
+            <button onclick="pressNum(7)">7</button>
+            <button onclick="pressNum(8)">8</button>
+            <button onclick="pressNum(9)">9</button>
+            <button onclick="clearPin()">C</button>
+            <button onclick="pressNum(0)">0</button>
+            <button onclick="submitPin()">OK</button>
+        </div>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="update-time" id="lastUpdate"></div>
+</div>
+<script>
+let pin = "";
+let currentAction = "disarm"; // disarm, stopAlarm, armHome, armAway
+let systemState = {}; // Bude obsahovať aktuálny stav systému
+
+function updateUI() {
+    fetch('/api/state').then(r=>r.json()).then(state => {
+        systemState = state;
+        
+        // Cache DOM elements
+        const status = document.getElementById('status');
+        const statusPanel = document.getElementById('statusPanel');
+        const pinSection = document.getElementById('pinSection');
+        const armHomeBtn = document.getElementById('armHomeBtn');
+        const armAwayBtn = document.getElementById('armAwayBtn');
+        const disarmBtn = document.getElementById('disarmBtn');
+        const stopAlarmBtn = document.getElementById('stopAlarmBtn');
+        const msg = document.getElementById('msg');
+        const countdown = document.getElementById('countdown');
+        const deviceCount = document.getElementById('deviceCount');
+        const deviceOnlineCount = document.getElementById('deviceOnlineCount');
+        const triggeredSensors = document.getElementById('triggeredSensors');
+        const systemMode = document.getElementById('systemMode');
+        const lastUpdate = document.getElementById('lastUpdate');
+        
+        // Aktualizácia štatistík - tu by sme mali volať API na získanie údajov zo senzorov pre počet aktívnych
+        updateSensorStats();
+        
+        // Aktualizácia režimu systému
+        const armedMode = state.armed_mode || 'disarmed';
+        const alarmActive = state.alarm_active || false;
+        
+        // Aktualizácia nadpisu stavu
+        if (alarmActive) {
+            status.innerText = "ALARM AKTÍVNY! Narušenie detegované!";
+            statusPanel.className = "status-panel status-alarm";
+            systemMode.innerText = "ALARM";
+            systemMode.className = "sensor-value alert";
+        } else if (armedMode === 'armed_home') {
+            status.innerText = "Systém zabezpečený - režim Doma";
+            statusPanel.className = "status-panel status-armed-home";
+            systemMode.innerText = "ZABEZPEČENÝ (DOMA)";
+            systemMode.className = "sensor-value";
+        } else if (armedMode === 'armed_away') {
+            status.innerText = "Systém zabezpečený - režim Preč";
+            statusPanel.className = "status-panel status-armed-away";
+            systemMode.innerText = "ZABEZPEČENÝ (PREČ)";
+            systemMode.className = "sensor-value";
+        } else {
+            status.innerText = "Systém nezabezpečený";
+            statusPanel.className = "status-panel status-disarmed";
+            systemMode.innerText = "NEZABEZPEČENÝ";
+            systemMode.className = "sensor-value";
+        }
+        
+        // Aktualizácia tlačidiel
+        armHomeBtn.disabled = armedMode !== 'disarmed' || alarmActive;
+        armAwayBtn.disabled = armedMode !== 'disarmed' || alarmActive;
+        disarmBtn.disabled = armedMode === 'disarmed';
+        stopAlarmBtn.disabled = !alarmActive;
+        
+        // Kontrola lockout stavu
+        if (state.lockout_until && Date.now()/1000 < state.lockout_until) {
+            const remainingLockout = Math.ceil(state.lockout_until - Date.now()/1000);
+            msg.innerText = `Zamknuté, skúste neskôr. (${remainingLockout}s)`;
+            pinSection.style.display = 'none';
+        } else {
+            msg.innerText = '';
+        }
+        
+        // Aktualizácia času poslednej aktualizácie
+        lastUpdate.innerText = `Aktualizované: ${new Date().toLocaleTimeString()}`;
+    });
+}
+
+// Funkcia na načítanie údajov senzorov
+function updateSensorStats() {
+    fetch('/api/sensors').then(r=>r.json()).then(data => {
+        const deviceCount = document.getElementById('deviceCount');
+        const deviceOnlineCount = document.getElementById('deviceOnlineCount');
+        const triggeredSensors = document.getElementById('triggeredSensors');
+        
+        if (data.sensors) {
+            // Počet zariadení
+            const uniqueDevices = new Set();
+            data.sensors.forEach(s => uniqueDevices.add(s.device_name));
+            deviceCount.innerText = uniqueDevices.size;
+            
+            // Online zariadenia - toto by malo byť poskytované inou API
+            fetch('/api/mqtt/status').then(r=>r.json()).then(mqtt => {
+                deviceOnlineCount.innerText = mqtt.online_device_count || 0;
+            }).catch(() => {
+                deviceOnlineCount.innerText = "?";
+            });
+            
+            // Aktivované senzory
+            let triggered = data.sensors.filter(s => 
+                s.status.includes("DETEGOVANÝ") || 
+                s.status.includes("OTVORENÉ")
+            ).length;
+            
+            triggeredSensors.innerText = triggered;
+            triggeredSensors.className = triggered > 0 ? "sensor-value alert" : "sensor-value";
+        }
+    }).catch(err => {
+        console.error("Chyba pri načítavaní údajov senzorov:", err);
+    });
+}
+
+function showPinDialog(action) {
+    currentAction = action;
+    document.getElementById('pinInput').value = "";
+    document.getElementById('pinSection').style.display = '';
+    pin = "";
+    
+    // Aktualizuj text podľa akcie
+    const statusText = document.querySelector('#pinSection .status');
+    if (action === 'disarm') {
+        statusText.innerText = "Zadajte PIN kód na deaktiváciu";
+    } else if (action === 'stopAlarm') {
+        statusText.innerText = "Zadajte PIN kód na zastavenie alarmu";
+    } else if (action === 'armHome') {
+        statusText.innerText = "Zadajte PIN kód pre aktiváciu režimu Doma";
+    } else if (action === 'armAway') {
+        statusText.innerText = "Zadajte PIN kód pre aktiváciu režimu Preč";
+    }
+}
+
+function pressNum(n) {
+    if(pin.length < 6) {
+        pin += n;
+        document.getElementById('pinInput').value = '*'.repeat(pin.length);
+    }
+}
+
+function clearPin() {
+    pin = "";
+    document.getElementById('pinInput').value = "";
+}
+
+function submitPin() {
+    if (currentAction === 'disarm') {
+        fetch('/api/system/disarm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pin: pin})
+        }).then(async r => {
+            const data = await r.json();
+            if(r.ok && data.success) {
+                document.getElementById('pinSection').style.display = 'none';
+                clearPin();
+                updateUI();
+            } else {
+                document.getElementById('msg').innerText = data.message || 'Chyba';
+                clearPin();
+            }
+        }).catch(err => {
+            document.getElementById('msg').innerText = 'Chyba komunikácie';
+            console.error(err);
+        });
+    } else if (currentAction === 'stopAlarm') {
+        fetch('/api/system/alarm/stop', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pin: pin})
+        }).then(async r => {
+            const data = await r.json();
+            if(r.ok && data.success) {
+                document.getElementById('pinSection').style.display = 'none';
+                clearPin();
+                updateUI();
+            } else {
+                document.getElementById('msg').innerText = data.message || 'Chyba';
+                clearPin();
+            }
+        }).catch(err => {
+            document.getElementById('msg').innerText = 'Chyba komunikácie';
+            console.error(err);
+        });
+    } else if (currentAction === 'armHome') {
+        fetch('/api/system/arm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mode: 'armed_home', pin: pin})
+        }).then(async r => {
+            const data = await r.json();
+            if(r.ok && data.success) {
+                document.getElementById('pinSection').style.display = 'none';
+                clearPin();
+                updateUI();
+            } else {
+                document.getElementById('msg').innerText = data.message || 'Chyba';
+                clearPin();
+            }
+        }).catch(err => {
+            document.getElementById('msg').innerText = 'Chyba komunikácie';
+            console.error(err);
+        });
+    } else if (currentAction === 'armAway') {
+        fetch('/api/system/arm', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mode: 'armed_away', pin: pin})
+        }).then(async r => {
+            const data = await r.json();
+            if(r.ok && data.success) {
+                document.getElementById('pinSection').style.display = 'none';
+                clearPin();
+                updateUI();
+            } else {
+                document.getElementById('msg').innerText = data.message || 'Chyba';
+                clearPin();
+            }
+        }).catch(err => {
+            document.getElementById('msg').innerText = 'Chyba komunikácie';
+            console.error(err);
+        });
+    }
+}
+
+// Obsluhovače udalostí tlačidiel
+document.getElementById('armHomeBtn').onclick = function() {
+    showPinDialog('armHome');
+};
+
+document.getElementById('armAwayBtn').onclick = function() {
+    showPinDialog('armAway');
+};
+
+document.getElementById('disarmBtn').onclick = function() {
+    showPinDialog('disarm');
+};
+
+document.getElementById('stopAlarmBtn').onclick = function() {
+    showPinDialog('stopAlarm');
+};
+
+// Aktualizácia UI každú sekundu
+setInterval(updateUI, 1000);
+updateUI();
+</script>
+</body>
+</html>

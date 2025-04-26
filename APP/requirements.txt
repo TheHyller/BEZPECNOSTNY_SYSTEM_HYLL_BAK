@@ -1,0 +1,36 @@
+# requirements.txt - Hlavné závislosti pre bezpečnostný systém
+# Spoločné knižnice pre Raspberry Pi aj Windows
+
+# GUI knižnice (Kivy)
+kivy==2.3.0
+kivymd==1.2.0
+
+# Web rozhranie
+flask==3.0.0
+flask-socketio==5.3.6  # Komunikácia v reálnom čase
+waitress==2.2.0
+
+# MQTT klient
+paho-mqtt==2.2.1
+# Poznámka: MQTT broker sa používa Mosquitto a spúšťa sa externe
+
+# Audio
+playsound==1.3.0
+
+# Sieťová komunikácia a spracovanie dát
+requests==2.31.0
+aiohttp==3.9.1  # Asynchrónne HTTP požiadavky
+
+# Manipulácia s JSON
+jsonschema==4.20.0
+
+# Zabezpečenie
+bcrypt==4.1.1  # Hashovanie hesiel
+pyjwt==2.8.0  # Webové tokeny pre autentifikáciu
+
+# Dodatočné knižnice
+pillow==10.2.0  # Práca s obrázkami
+python-dateutil==2.8.2  # Práca s dátumami
+pytz==2023.3.post1  # Časové zóny
+apscheduler==3.10.4  # Plánovanie úloh
+python-dotenv==1.0.0  # Načítanie premenných prostredia

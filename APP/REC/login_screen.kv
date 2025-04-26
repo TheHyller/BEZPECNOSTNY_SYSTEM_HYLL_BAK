@@ -1,0 +1,115 @@
+<LoginScreen>:
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "24dp"
+        padding: "32dp"
+        MDLabel:
+            text: "Zadajte PIN kód"
+            halign: "center"
+            font_style: "H5"
+        # Pridaný štítok pre odpočítavanie
+        MDLabel:
+            text: root.countdown_text
+            halign: "center"
+            color: 1, 0, 0, 1  # červená farba pre zvýraznenie urgentnosti
+            font_style: "Subtitle1"
+            height: "30dp" if root.countdown_text else "0dp"
+            size_hint_y: None
+            opacity: 1 if root.countdown_text else 0
+        MDTextField:
+            id: pin_input
+            hint_text: "PIN"
+            password: True
+            readonly: True  # Nastavené na True, aby sa nezobrazovala softvérová klávesnica
+            halign: "center"
+            font_size: "32sp"
+            size_hint_y: None
+            height: "56dp"
+        
+        # Vylepšená numerická klávesnica s väčšími tlačidlami a lepšou viditeľnosťou
+        GridLayout:
+            cols: 3
+            spacing: "24dp"
+            padding: [0, 0, 0, 0]
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: '70dp'  # Zväčšené tlačidlá pre lepší dotykový vstup
+            row_force_default: True
+            col_default_width: '80dp'
+            col_force_default: True
+            
+            MDRaisedButton:
+                text: "1"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(1)
+            MDRaisedButton:
+                text: "2"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(2)
+            MDRaisedButton:
+                text: "3"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(3)
+            MDRaisedButton:
+                text: "4"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(4)
+            MDRaisedButton:
+                text: "5"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(5)
+            MDRaisedButton:
+                text: "6"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(6)
+            MDRaisedButton:
+                text: "7"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(7)
+            MDRaisedButton:
+                text: "8"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(8)
+            MDRaisedButton:
+                text: "9"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(9)
+            MDRaisedButton:
+                text: "C"
+                font_size: "28sp"
+                size_hint: 1, 1
+                md_bg_color: [0.8, 0.2, 0.2, 1]  # Červená farba pre vyčistenie
+                on_release: root.on_clear()
+            MDRaisedButton:
+                text: "0"
+                font_size: "28sp"
+                size_hint: 1, 1
+                on_release: root.on_number_press(0)
+            MDRaisedButton:
+                text: "←"  # Symbol pre backspace
+                font_size: "28sp"
+                size_hint: 1, 1
+                md_bg_color: [0.4, 0.4, 0.4, 1]  # Sivá farba pre backspace
+                on_release: root.on_backspace()
+                
+        # Potvrdzovacie tlačidlo
+        MDRaisedButton:
+            text: "Potvrdiť"
+            font_size: "24sp"
+            size_hint_x: 0.5
+            pos_hint: {"center_x": 0.5}
+            md_bg_color: [0.1, 0.7, 0.1, 1]  # Zelená farba pre potvrdenie
+            on_release: root.on_enter()
+            
+        # Medzera na dne obrazovky
+        Widget:
+            size_hint_y: 0.3

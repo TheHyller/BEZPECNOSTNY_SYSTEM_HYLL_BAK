@@ -1,0 +1,8 @@
+[
+    {
+        "device_id": "rpi_sensor_1",
+        "device_name": "Spálňa",
+        "type": "RaspberryPi",
+        "room": "Spálňa"
+    }
+]

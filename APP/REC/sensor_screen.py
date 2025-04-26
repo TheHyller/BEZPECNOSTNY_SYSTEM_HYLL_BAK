@@ -1,0 +1,260 @@
+# sensor_screen.py - Obrazovka senzorov
+from kivymd.uix.screen import MDScreen
+from kivy.properties import DictProperty, StringProperty, BooleanProperty
+from kivy.clock import Clock
+from config.system_state import load_state
+from config.devices_manager import load_devices
+from kivymd.uix.list import TwoLineAvatarIconListItem, IconLeftWidget, IconRightWidget
+from kivymd.uix.dialog import MDDialog
+from kivymd.uix.button import MDFlatButton
+import notification_service as ns
+
+class SensorScreen(MDScreen):
+    sensor_states = DictProperty({})
+    last_update = StringProperty("")
+    system_armed = BooleanProperty(False)
+    armed_mode = StringProperty("disarmed")
+    alarm_active = BooleanProperty(False)
+    
+    def on_pre_enter(self):
+        self.update_sensor_states()
+        if not hasattr(self, '_poll_event'):
+            self._poll_event = Clock.schedule_interval(lambda dt: self.update_sensor_states(), 2)
+    
+    def on_leave(self):
+        # Zrušenie časovača, keď opustíme obrazovku
+        if hasattr(self, '_poll_event'):
+            self._poll_event.cancel()
+            self._poll_event = None
+    
+    def go_back(self):
+        # Návrat na hlavnú obrazovku
+        if self.manager:
+            self.manager.current = 'dashboard'
+    
+    def on_sensor_states(self, instance, value):
+        # Vyčistenie zoznamu a naplnenie novými údajmi
+        self.ids.sensors_list.clear_widgets()
+        
+        # Zoradenie senzorov podľa miestnosti a zariadenia
+        sorted_keys = sorted(self.sensor_states.keys(), 
+                           key=lambda k: (self.sensor_states[k]['room'], 
+                                         self.sensor_states[k]['device_name']))
+        
+        # Vytvorenie položky zoznamu pre každý senzor
+        for key in sorted_keys:
+            sensor_data = self.sensor_states[key]
+            icon_name = self.get_sensor_icon(key.split('_')[1], sensor_data.get('triggered', False))
+            
+            icon = IconLeftWidget(icon=icon_name)
+            if sensor_data.get('triggered', False):
+                icon.theme_text_color = "Custom"
+                icon.text_color = sensor_data['color']
+            
+            # Vytvorenie hlavnej položky zoznamu
+            item = TwoLineAvatarIconListItem(
+                text=f"{sensor_data['room']} - {sensor_data['sensor']}",
+                secondary_text=sensor_data['status']
+            )
+            
+            # Nastavenie farby textu podľa stavu
+            if sensor_data.get('triggered', False):
+                item.theme_text_color = "Custom"
+                item.text_color = sensor_data['color']
+                item.secondary_theme_text_color = "Custom"
+                item.secondary_text_color = sensor_data['color']
+                
+                # Ak je senzor spustený a systém je zabezpečený, pridáme ikonu alarmu
+                if self.system_armed:
+                    alarm_icon = IconRightWidget(icon="alarm-light")
+                    alarm_icon.theme_text_color = "Custom"
+                    alarm_icon.text_color = [1, 0, 0, 1]
+                    item.add_widget(alarm_icon)
+            
+            # Pridanie klikateľných akcií pre viac informácií
+            item.bind(on_release=lambda x, k=key: self.show_sensor_detail(k))
+                
+            item.add_widget(icon)
+            self.ids.sensors_list.add_widget(item)
+    
+    def update_sensor_states(self):
+        from datetime import datetime
+        # Načítanie stavu systému
+        system_state = load_state()
+        self.armed_mode = system_state.get('armed_mode', 'disarmed')
+        self.system_armed = self.armed_mode != 'disarmed'
+        self.alarm_active = system_state.get('alarm_active', False)
+        
+        # Načítanie stavu senzorov zo súboru
+        states = {}
+        
+        try:
+            devices = load_devices()
+            
+            # Načítanie stavu z device_status.json
+            import json
+            import os
+            device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
+            
+            # Kontrola existencie súboru
+            if not os.path.exists(device_status_path):
+                print(f"Súbor device_status.json neexistuje na {device_status_path}")
+                self.sensor_states = {}
+                self.last_update = f"Aktualizované: {datetime.now().strftime('%H:%M:%S')} - Žiadne údaje"
+                return
+            
+            with open(device_status_path, 'r', encoding='utf-8') as f:
+                device_states = json.load(f)
+                
+            # Transformácia senzorov pre zobrazenie
+            for device in devices:
+                device_id = device['id']  # Možno bude potrebné upraviť podľa skutočného kľúča v dátach
+                if device_id in device_states:
+                    device_name = device['name'] if 'name' in device else device_id
+                    room = device.get('room', 'Neznáma miestnosť')
+                    
+                    for sensor_type, status in device_states[device_id].items():
+                        # Preskočíme nerelevantné kľúče
+                        if sensor_type not in ['motion', 'door', 'window']:
+                            continue
+                            
+                        sensor_name = self.get_sensor_name(sensor_type)
+                        state_text = self.get_state_text(sensor_type, status)
+                        state_color = self.get_state_color(sensor_type, status)
+                        
+                        # Určenie, či je senzor v stave, ktorý spúšťa alarm
+                        triggered = (sensor_type == 'motion' and status == 'DETECTED') or \
+                                    (sensor_type in ['door', 'window'] and status == 'OPEN')
+                        
+                        # Stav alarmu pre daný senzor
+                        alarm_state = triggered and self.system_armed
+                        if self.armed_mode == 'armed_home' and sensor_type == 'motion':
+                            # V režime "Doma" ignorujeme pohybové senzory
+                            alarm_state = False
+                        
+                        states[f"{device_id}_{sensor_type}"] = {
+                            'device_id': device_id,
+                            'device_name': device_name,
+                            'room': room,
+                            'sensor': sensor_name,
+                            'sensor_type': sensor_type,
+                            'raw_status': status,
+                            'status': state_text,
+                            'color': state_color,
+                            'triggered': triggered,
+                            'alarm_state': alarm_state,
+                            'would_trigger_alarm': triggered and self.armed_mode == 'armed_away',
+                            'ignored_in_home_mode': sensor_type == 'motion' and self.armed_mode == 'armed_home'
+                        }
+        except Exception as e:
+            print(f"Chyba pri načítaní stavov senzorov: {e}")
+            import traceback
+            traceback.print_exc()
+            
+        self.sensor_states = states
+        self.last_update = f"Aktualizované: {datetime.now().strftime('%H:%M:%S')}"
+    
+    def get_sensor_name(self, sensor_type):
+        names = {
+            'motion': 'Pohybový senzor',
+            'door': 'Dverový kontakt',
+            'window': 'Okenný kontakt'
+        }
+        return names.get(sensor_type, sensor_type.capitalize())
+    
+    def get_state_text(self, sensor_type, status):
+        if sensor_type == 'motion':
+            return 'DETEGOVANÝ POHYB' if status == 'DETECTED' else 'ŽIADNY POHYB'
+        elif sensor_type == 'door':
+            return 'OTVORENÉ' if status == 'OPEN' else 'ZATVORENÉ'
+        elif sensor_type == 'window':
+            return 'OTVORENÉ' if status == 'OPEN' else 'ZATVORENÉ'
+        else:
+            return status
+    
+    def get_state_color(self, sensor_type, status):
+        if sensor_type == 'motion' and status == 'DETECTED':
+            return [1, 0, 0, 1]  # červená
+        elif sensor_type in ['door', 'window'] and status == 'OPEN':
+            return [1, 0, 0, 1]  # červená
+        else:
+            return [0, 0.7, 0, 1]  # zelená
+    
+    def get_sensor_icon(self, sensor_type, triggered=False):
+        if sensor_type == 'motion':
+            return 'motion-sensor' if not triggered else 'motion-sensor-alert'
+        elif sensor_type == 'door':
+            return 'door-closed' if not triggered else 'door-open'
+        elif sensor_type == 'window':
+            return 'window-closed' if not triggered else 'window-open'
+        else:
+            return 'devices'
+    
+    def show_sensor_detail(self, sensor_key):
+        """Zobrazí detailný dialóg o senzore"""
+        if sensor_key not in self.sensor_states:
+            return
+            
+        sensor = self.sensor_states[sensor_key]
+        
+        # Vytvorenie informácií o stave alarmu
+        alarm_info = ""
+        if self.system_armed:
+            if sensor['alarm_state']:
+                alarm_info = "POZOR! Senzor spustil alarm!"
+            elif sensor['ignored_in_home_mode']:
+                alarm_info = "Senzor je v režime Doma ignorovaný."
+            elif sensor['triggered']:
+                alarm_info = "Senzor je spustený, ale alarm nie je aktívny."
+            else:
+                alarm_info = "Senzor je v normálnom stave."
+        else:
+            if sensor['triggered']:
+                alarm_info = "Senzor je spustený, ale systém nie je zabezpečený."
+            else:
+                alarm_info = "Senzor je v normálnom stave."
+        
+        content = f"""
+Miestnosť: {sensor['room']}
+Zariadenie: {sensor['device_name']}
+Typ senzora: {sensor['sensor']}
+Stav: {sensor['status']}
+
+{alarm_info}
+        """
+        
+        # Vytvorenie tlačidiel dialógu
+        buttons = [
+            MDFlatButton(
+                text="ZATVORIŤ",
+                theme_text_color="Custom",
+                text_color=self.theme_cls.primary_color,
+                on_release=lambda x: self.dialog.dismiss()
+            )
+        ]
+        
+        # Ak je alarm aktívny, pridáme tlačidlo na jeho zastavenie
+        if self.alarm_active and sensor['alarm_state']:
+            buttons.append(
+                MDFlatButton(
+                    text="ZASTAVIŤ ALARM",
+                    theme_text_color="Custom",
+                    text_color=[1, 0, 0, 1],
+                    on_release=lambda x: self.stop_alarm_and_dismiss()
+                )
+            )
+        
+        # Vytvorenie dialógu
+        self.dialog = MDDialog(
+            title=f"{sensor['sensor']} - {sensor['room']}",
+            text=content,
+            buttons=buttons
+        )
+        self.dialog.open()
+    
+    def stop_alarm_and_dismiss(self):
+        """Zastaví alarm a zatvorí dialóg"""
+        ns.stop_alarm()
+        self.dialog.dismiss()
+        # Aktualizácia zobrazenia
+        self.update_sensor_states()

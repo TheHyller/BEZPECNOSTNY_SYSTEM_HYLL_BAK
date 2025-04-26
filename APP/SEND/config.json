@@ -1,0 +1,14 @@
+{
+    "device_id": "rpi_sensor_1",
+    "device_name": "Spálňa",
+    "motion_pin": 17,
+    "door_pin": 27,
+    "window_pin": 22,
+    "led_pin": 18,
+    "mqtt": {
+        "broker": "192.168.137.57",
+        "port": 1883,
+        "username": "",
+        "password": ""
+    }
+}

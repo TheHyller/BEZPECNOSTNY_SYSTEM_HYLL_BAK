@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>História upozornení - Domáci bezpečnostný systém</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        h2 { text-align: center; margin-top: 0; }
+        .nav-menu { display: flex; justify-content: center; margin-bottom: 20px; }
+        .nav-menu a { padding: 10px 15px; text-decoration: none; color: #455a64; font-weight: bold; border-radius: 4px; }
+        .nav-menu a:hover { background-color: #f0f0f0; }
+        .nav-menu a.active { background-color: #009688; color: #fff; }
+        .alert-list { margin: 24px 0; }
+        .filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; background: #f0f0f0; padding: 12px; border-radius: 4px; }
+        .filter-label { font-weight: bold; margin-right: 8px; }
+        .filter-button { padding: 6px 12px; border-radius: 16px; border: none; cursor: pointer; font-size: 0.9em; }
+        .filter-button.active { background-color: #009688; color: white; }
+        .filter-button:not(.active) { background-color: #e0e0e0; color: #333; }
+        .alert-item { padding: 16px; margin-bottom: 16px; border-radius: 4px; border-left: 4px solid #ddd; background: #f5f5f5; display: flex; align-items: center; }
+        .alert-item.info { border-left-color: #2196F3; }
+        .alert-item.warning { border-left-color: #FF9800; }
+        .alert-item.danger, .alert-item.alert { border-left-color: #F44336; }
+        .alert-content { flex: 1; }
+        .alert-title { font-weight: bold; margin-bottom: 4px; }
+        .alert-time { color: #666; font-size: 0.9em; margin-bottom: 4px; }
+        .alert-image-thumbnail { width: 80px; height: 60px; object-fit: cover; cursor: pointer; margin-left: 16px; border-radius: 4px; }
+        .alert-image-placeholder { width: 80px; height: 60px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; color: #999; font-size: 0.8em; margin-left: 16px; border-radius: 4px; }
+        .actions { margin-top: 24px; text-align: center; }
+        .btn { padding: 10px 24px; font-size: 1em; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; margin: 0 8px; }
+        .btn-danger { background: #d32f2f; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); }
+        .modal-content { display: flex; flex-direction: column; margin: 5% auto; padding: 20px; max-width: 80%; max-height: 80vh; }
+        .modal-image-container { flex: 1; display: flex; justify-content: center; align-items: center; }
+        .modal-image { max-width: 100%; max-height: 70vh; object-fit: contain; }
+        .modal-title { color: white; text-align: center; margin-bottom: 16px; }
+        .modal-info { background: rgba(255,255,255,0.9); padding: 12px; border-radius: 4px; margin-top: 16px; }
+        .close-button { color: white; position: absolute; right: 32px; top: 16px; font-size: 2em; cursor: pointer; }
+        .loading { text-align: center; padding: 32px; color: #666; }
+        .empty-message { text-align: center; padding: 32px; color: #666; background: #f0f0f0; border-radius: 4px; }
+        .last-update { text-align: right; color: #666; font-size: 0.8em; margin-top: 16px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>História upozornení</h2>
+    
+    <!-- Navigačné menu -->
+    <div class="nav-menu">
+        <a href="/">Dashboard</a>
+        <a href="/sensors">Senzory</a>
+        <a href="/alerts" class="active">Upozornenia</a>
+        <a href="/mqtt">MQTT Monitor</a>
+    </div>
+    
+    <!-- Filter panel -->
+    <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <button class="filter-button active" data-filter="all">Všetky</button>
+        <button class="filter-button" data-filter="info">Info</button>
+        <button class="filter-button" data-filter="warning">Varovanie</button>
+        <button class="filter-button" data-filter="alert">Alarm</button>
+        <button class="filter-button" data-filter="image-only">Len s obrázkom</button>
+    </div>
+    
+    <!-- Alert list -->
+    <div class="alert-list" id="alertsList">
+        <div class="loading">Načítavam upozornenia...</div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="actions">
+        <button class="btn" onclick="loadAlerts()">Obnoviť</button>
+        <button class="btn btn-danger" onclick="clearAlerts()">Vymazať všetky</button>
+    </div>
+    
+    <div class="last-update" id="lastUpdate">Aktualizované: -</div>
+</div>
+
+<!-- Image modal -->
+<div id="imageModal" class="modal">
+    <span class="close-button" onclick="closeModal()">&times;</span>
+    <div class="modal-content">
+        <h3 class="modal-title" id="modalTitle">Detailný pohľad</h3>
+        <div class="modal-image-container">
+            <img id="modalImage" class="modal-image" src="" alt="Detail obrázku">
+        </div>
+        <div class="modal-info" id="modalInfo"></div>
+    </div>
+</div>
+
+<script>
+// Stav aplikácie
+let alerts = [];
+let currentFilter = 'all';
+
+// Načítanie upozornení zo servera
+function loadAlerts() {
+    document.getElementById('alertsList').innerHTML = '<div class="loading">Načítavam upozornenia...</div>';
+    
+    fetch('/api/alerts?count=100')
+        .then(response => response.json())
+        .then(data => {
+            alerts = data.alerts || [];
+            renderAlerts();
+            document.getElementById('lastUpdate').innerText = `Aktualizované: ${new Date().toLocaleTimeString()}`;
+        })
+        .catch(error => {
+            console.error('Chyba pri načítavaní upozornení:', error);
+            document.getElementById('alertsList').innerHTML = '<div class="empty-message">Chyba pri načítavaní upozornení.</div>';
+        });
+}
+
+// Renderovanie zoznamu upozornení
+function renderAlerts() {
+    const alertsList = document.getElementById('alertsList');
+    alertsList.innerHTML = '';
+    
+    // Filtrovanie alertov podľa aktuálneho filtra
+    let filteredAlerts = alerts.filter(alert => {
+        if (currentFilter === 'all') return true;
+        if (currentFilter === 'image-only') return alert.image_path;
+        return alert.level === currentFilter;
+    });
+    
+    if (filteredAlerts.length === 0) {
+        alertsList.innerHTML = '<div class="empty-message">Žiadne upozornenia na zobrazenie.</div>';
+        return;
+    }
+    
+    // Zoradenie alertov podľa času (najnovšie prvé)
+    filteredAlerts.sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timeB - timeA;
+    });
+    
+    // Vytvorenie HTML pre každý alert
+    filteredAlerts.forEach(alert => {
+        const alertItem = document.createElement('div');
+        alertItem.className = `alert-item ${alert.level || 'info'}`;
+        
+        const formattedTime = formatDateTime(alert.timestamp);
+        
+        let alertHtml = `
+            <div class="alert-content">
+                <div class="alert-title">${alert.message || 'Neznáme upozornenie'}</div>
+                <div class="alert-time">${formattedTime}</div>
+            </div>
+        `;
+        
+        // Ak má alert obrázok, zobrazíme náhľad
+        if (alert.image_path) {
+            alertHtml += `
+                <img 
+                    class="alert-image-thumbnail" 
+                    src="/api/image?path=${encodeURIComponent(alert.image_path)}" 
+                    alt="Náhľad" 
+                    onclick="showImageModal('${encodeURIComponent(alert.image_path)}', '${alert.message}', '${formattedTime}', '${alert.level}')"
+                >
+            `;
+        } else {
+            alertHtml += `
+                <div class="alert-image-placeholder">Žiadny obrázok</div>
+            `;
+        }
+        
+        alertItem.innerHTML = alertHtml;
+        alertsList.appendChild(alertItem);
+    });
+}
+
+// Formátovanie dátumu a času
+function formatDateTime(isoString) {
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleDateString('sk-SK') + ' ' + date.toLocaleTimeString('sk-SK');
+    } catch (e) {
+        return 'Neznámy čas';
+    }
+}
+
+// Zobrazenie modálneho okna s obrázkom
+function showImageModal(imagePath, title, time, level) {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalInfo = document.getElementById('modalInfo');
+    
+    // Nastavenie obsahu modálu
+    modalImage.src = `/api/image?path=${imagePath}`;
+    modalTitle.innerText = title || 'Detailný pohľad';
+    
+    // Formátovanie úrovne alertu
+    let levelText = 'Info';
+    if (level === 'warning') levelText = 'Varovanie';
+    if (level === 'alert' || level === 'danger') levelText = 'Alarm';
+    
+    modalInfo.innerHTML = `
+        <strong>Čas:</strong> ${time}<br>
+        <strong>Typ:</strong> ${levelText}<br>
+        <strong>Správa:</strong> ${title}
+    `;
+    
+    // Zobrazenie modálu
+    modal.style.display = 'block';
+    
+    // Zatvorenie modálu kliknutím mimo obrázku
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+}
+
+// Zatvorenie modálneho okna
+function closeModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+// Zmena filtru
+function setFilter(filter) {
+    currentFilter = filter;
+    
+    // Aktualizácia vzhľadu tlačidiel filtru
+    document.querySelectorAll('.filter-button').forEach(button => {
+        if (button.dataset.filter === filter) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+    
+    renderAlerts();
+}
+
+// Vymazanie všetkých alertov
+function clearAlerts() {
+    if (confirm('Naozaj chcete vymazať všetky upozornenia?')) {
+        fetch('/api/alerts/clear', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alerts = [];
+                renderAlerts();
+            } else {
+                alert('Chyba pri vymazávaní upozornení: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Chyba pri vymazávaní upozornení:', error);
+            alert('Chyba pri vymazávaní upozornení.');
+        });
+    }
+}
+
+// Nastavenie event handlerov pre filter tlačidlá
+document.querySelectorAll('.filter-button').forEach(button => {
+    button.addEventListener('click', () => setFilter(button.dataset.filter));
+});
+
+// Načítanie alertov pri načítaní stránky
+document.addEventListener('DOMContentLoaded', loadAlerts);
+
+// Pravidelné obnovovanie alertov (každých 30 sekúnd)
+setInterval(loadAlerts, 30000);
+</script>
+</body>
+</html>

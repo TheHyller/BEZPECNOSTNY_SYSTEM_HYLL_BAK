@@ -1,0 +1,32 @@
+# requirements_pi.txt - Závislosti špecifické pre Raspberry Pi
+# Nainštalujte tieto knižnice len na Raspberry Pi
+
+# Hlavné závislosti
+-r requirements.txt
+
+# Hardvérové knižnice
+RPi.GPIO==0.7.1  # GPIO piny
+picamera2==0.3.16  # Náhrada za zastaranú knižnicu picamera
+gpiozero==2.0.1  # Jednoduchšie GPIO API
+adafruit-blinka==8.23.0  # Podpora pre Adafruit senzory
+smbus2==0.4.3  # Komunikácia s I2C zariadeniami
+
+# Senzory a periférie
+adafruit-circuitpython-dht==3.7.13  # Senzor teploty a vlhkosti DHT
+adafruit-circuitpython-pir==1.2.11  # PIR senzor pohybu
+rpi-rf==0.9.7  # Bezdrôtová RF komunikácia (433MHz)
+
+# Kamera a obrazový vstup
+opencv-python-headless==4.8.1.78  # OpenCV bez GUI závislostí
+imutils==0.5.4  # Pomocné funkcie pre počítačové videnie
+
+# Audio
+pyaudio==0.2.13  # Nahrávanie zvuku
+
+# Systémové knižnice
+psutil==5.9.6  # Systémové informácie
+rpi-hardware-info==0.0.6  # Informácie o hardvéri Raspberry Pi
+
+# Sieťové knižnice
+netifaces==0.11.0  # Zisťovanie sieťového rozhrania
+bluepy==1.3.0  # Bluetooth LE komunikácia

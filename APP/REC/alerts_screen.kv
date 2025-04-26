@@ -1,0 +1,54 @@
+<AlertsScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        
+        MDTopAppBar:
+            title: "História upozornení"
+            elevation: 4
+            left_action_items: [["arrow-left", lambda x: setattr(app.sm, 'current', 'dashboard')]]
+            right_action_items: [["refresh", lambda x: root.load_alerts()], ["delete", lambda x: root.clear_alerts()]]
+        
+        BoxLayout:
+            orientation: 'vertical'
+            padding: "10dp"
+            spacing: "10dp"
+            
+            MDBoxLayout:
+                adaptive_height: True
+                spacing: "10dp"
+                padding: "10dp"
+                
+                MDLabel:
+                    text: "Filter závažnosti:"
+                    size_hint_x: None
+                    width: "150dp"
+                
+                MDChip:
+                    text: "Všetky"
+                    on_release: root.filter_alerts("all")
+                    md_bg_color: app.theme_cls.primary_color if root.current_filter == "all" else [0.8, 0.8, 0.8, 1]
+                
+                MDChip:
+                    text: "Info"
+                    on_release: root.filter_alerts("info")
+                    md_bg_color: app.theme_cls.primary_color if root.current_filter == "info" else [0.8, 0.8, 0.8, 1]
+                
+                MDChip:
+                    text: "Varovanie"
+                    on_release: root.filter_alerts("warning")
+                    md_bg_color: app.theme_cls.primary_color if root.current_filter == "warning" else [0.8, 0.8, 0.8, 1]
+                    
+                MDChip:
+                    text: "Alarm"
+                    on_release: root.filter_alerts("alert")
+                    md_bg_color: app.theme_cls.primary_color if root.current_filter == "alert" else [0.8, 0.8, 0.8, 1]
+            
+            ScrollView:
+                MDList:
+                    id: alerts_list
+                    padding: "10dp"
+        
+        MDFloatingActionButton:
+            icon: "delete-sweep"
+            pos_hint: {"right": 0.95, "y": 0.05}
+            on_release: root.clear_alerts()

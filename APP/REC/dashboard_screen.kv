@@ -1,0 +1,156 @@
+<DashboardScreen>:
+    MDBoxLayout:
+        orientation: "vertical"
+        spacing: "16dp"
+        padding: "24dp"
+        
+        # Hlavička s informáciami o stave systému
+        MDCard:
+            orientation: "vertical"
+            padding: "16dp"
+            size_hint_y: None
+            height: "160dp"
+            md_bg_color: [0.9, 0.2, 0.2, 0.8] if root.alarm_active else ([0.1, 0.6, 0.1, 0.8] if root.system_armed else [0.2, 0.3, 0.9, 0.8])
+            
+            MDLabel:
+                text: "Domáci bezpečnostný systém"
+                font_style: "H5"
+                halign: "center"
+                bold: True
+                color: [1, 1, 1, 1]
+                
+            MDLabel:
+                text: root.status_text
+                halign: "center"
+                font_style: "H6"
+                bold: True
+                color: [1, 1, 1, 1]
+                
+            MDLabel:
+                text: f"Posledná aktualizácia: {root.last_update}"
+                halign: "center"
+                font_style: "Caption"
+                color: [0.9, 0.9, 0.9, 1]
+
+        # Ovládanie systému - tlačidlá pre aktiváciu/deaktiváciu
+        MDCard:
+            orientation: "vertical"
+            padding: "16dp"
+            spacing: "8dp"
+            size_hint_y: None
+            height: "180dp"
+            
+            MDLabel:
+                text: "Ovládanie zabezpečenia"
+                halign: "center"
+                font_style: "H6"
+                size_hint_y: None
+                height: "40dp"
+                
+            MDGridLayout:
+                cols: 2
+                spacing: "12dp"
+                
+                MDRaisedButton:
+                    id: arm_home_btn
+                    text: "Aktivovať - Režim Doma"
+                    on_release: root.arm_system_home()
+                    md_bg_color: [0.1, 0.6, 0.1, 1]
+                    size_hint_x: 1
+                    
+                MDRaisedButton:
+                    id: arm_away_btn
+                    text: "Aktivovať - Režim Preč"
+                    on_release: root.arm_system_away()
+                    md_bg_color: [0.1, 0.6, 0.1, 1]
+                    size_hint_x: 1
+                    
+                MDRaisedButton:
+                    id: disarm_btn
+                    text: "Deaktivovať systém"
+                    on_release: root.disarm_system()
+                    md_bg_color: [0.8, 0.6, 0.1, 1]
+                    size_hint_x: 1
+                    
+                MDRaisedButton:
+                    id: alarm_stop_btn
+                    text: "Zastaviť alarm"
+                    on_release: root.stop_alarm()
+                    md_bg_color: [0.9, 0.1, 0.1, 1]
+                    size_hint_x: 1
+                
+        # Štatistiky
+        MDCard:
+            orientation: "vertical"
+            padding: "16dp"
+            spacing: "8dp"
+            size_hint_y: None
+            height: "180dp"
+            
+            MDLabel:
+                text: "Stav systému"
+                halign: "center"
+                font_style: "H6"
+                size_hint_y: None
+                height: "40dp"
+                
+            MDGridLayout:
+                cols: 2
+                spacing: "8dp"
+                
+                MDLabel:
+                    text: "Celkový počet zariadení:"
+                    font_style: "Body1"
+                    halign: "right"
+                    
+                MDLabel:
+                    text: root.device_count
+                    font_style: "Body1"
+                    bold: True
+                    
+                MDLabel:
+                    text: "Aktívne zariadenia:"
+                    font_style: "Body1"
+                    halign: "right"
+                    
+                MDLabel:
+                    text: root.online_device_count
+                    font_style: "Body1"
+                    bold: True
+                    
+                MDLabel:
+                    text: "Aktivované senzory:"
+                    font_style: "Body1"
+                    halign: "right"
+                    
+                MDLabel:
+                    text: root.sensors_triggered
+                    font_style: "Body1"
+                    bold: True
+                    color: [0.9, 0.1, 0.1, 1] if int(root.sensors_triggered) > 0 else [0.1, 0.6, 0.1, 1]
+
+        # Navigačné tlačidlá                
+        MDBoxLayout:
+            orientation: "horizontal"
+            spacing: "16dp"
+            size_hint_y: None
+            height: "48dp"
+            pos_hint: {"center_x": 0.5}
+            
+            MDRaisedButton:
+                text: "Zobraziť senzory"
+                on_release: root.manager.current = 'sensors'
+                md_bg_color: app.theme_cls.primary_color
+                size_hint_x: 0.33
+            
+            MDRaisedButton:
+                text: "Upozornenia"
+                on_release: root.manager.current = 'alerts'
+                md_bg_color: app.theme_cls.primary_color
+                size_hint_x: 0.33
+            
+            MDRaisedButton:
+                text: "Nastavenia"
+                on_release: root.manager.current = 'settings'
+                md_bg_color: app.theme_cls.primary_color
+                size_hint_x: 0.33

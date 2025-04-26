@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>Senzory - Domáci bezpečnostný systém</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        h2 { text-align: center; }
+        .nav-menu { display: flex; justify-content: center; margin-bottom: 20px; }
+        .nav-menu a { padding: 10px 15px; text-decoration: none; color: #455a64; font-weight: bold; border-radius: 4px; }
+        .nav-menu a:hover { background-color: #f0f0f0; }
+        .nav-menu a.active { background-color: #009688; color: #fff; }
+        .sensor-list { margin: 24px 0; }
+        .sensor-item { padding: 16px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #ddd; }
+        .sensor-item.danger { border-left-color: #d32f2f; background: #ffebee; }
+        .sensor-item.success { border-left-color: #388e3c; background: #e8f5e9; }
+        .sensor-name { font-weight: bold; margin-bottom: 4px; }
+        .sensor-location { color: #666; font-size: 0.9em; }
+        .sensor-status { margin-top: 8px; font-weight: bold; }
+        .danger .sensor-status { color: #d32f2f; }
+        .success .sensor-status { color: #388e3c; }
+        .actions { margin-top: 24px; text-align: center; }
+        .btn { padding: 10px 24px; font-size: 1em; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; margin: 0 8px; }
+        .last-update { text-align: right; color: #666; font-size: 0.8em; margin-top: 16px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Stav senzorov</h2>
+    
+    <!-- Navigačné menu -->
+    <div class="nav-menu">
+        <a href="/">Dashboard</a>
+        <a href="/sensors" class="active">Senzory</a>
+        <a href="/alerts">Upozornenia</a>
+        <a href="/mqtt">MQTT Monitor</a>
+    </div>
+    
+    <div id="sensorsList" class="sensor-list">
+        <div class="loading">Načítavam senzory...</div>
+    </div>
+    
+    <div class="actions">
+        <button class="btn" onclick="location.href='/'">Späť na hlavnú stránku</button>
+    </div>
+    
+    <div class="last-update" id="lastUpdate"></div>
+</div>
+
+<script>
+function updateSensors() {
+    fetch('/api/sensors')
+        .then(response => response.json())
+        .then(data => {
+            const sensorsList = document.getElementById('sensorsList');
+            sensorsList.innerHTML = '';
+            
+            if (data.sensors && data.sensors.length > 0) {
+                // Zoradenie podľa miestnosti a zariadenia
+                data.sensors.sort((a, b) => {
+                    if (a.room === b.room) return a.device_name.localeCompare(b.device_name);
+                    return a.room.localeCompare(b.room);
+                });
+                
+                data.sensors.forEach(sensor => {
+                    const sensorItem = document.createElement('div');
+                    sensorItem.className = `sensor-item ${sensor.status_class}`;
+                    
+                    sensorItem.innerHTML = `
+                        <div class="sensor-name">${sensor.sensor}</div>
+                        <div class="sensor-location">${sensor.room} - ${sensor.device_name}</div>
+                        <div class="sensor-status">${sensor.status}</div>
+                    `;
+                    
+                    sensorsList.appendChild(sensorItem);
+                });
+            } else {
+                sensorsList.innerHTML = '<div class="no-sensors">Žiadne senzory neboli nájdené.</div>';
+            }
+            
+            document.getElementById('lastUpdate').textContent = `Aktualizované: ${new Date().toLocaleTimeString()}`;
+        })
+        .catch(error => {
+            console.error('Chyba pri získavaní senzorov:', error);
+            document.getElementById('sensorsList').innerHTML = 
+                '<div class="error">Nepodarilo sa načítať informácie o senzoroch.</div>';
+        });
+}
+
+// Prvotné načítanie a potom každé 2 sekundy
+updateSensors();
+setInterval(updateSensors, 2000);
+</script>
+</body>
+</html>

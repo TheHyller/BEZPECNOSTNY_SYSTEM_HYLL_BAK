@@ -1,0 +1,36 @@
+{
+    "broker": "localhost",
+    "port": 1883,
+    "username": "",
+    "password": "",
+    "client_id_prefix": "home_security_",
+    "topics": {
+        "sensor": "home/security/sensors",
+        "image": "home/security/images",
+        "control": "home/security/control",
+        "status": "home/security/status"
+    },
+    "use_tls": false,
+    "qos": 1,
+    "reconnect_delay": 5,
+    "clean_session": true,
+    "keep_alive_interval": 60,
+    "last_will": {
+        "enabled": true,
+        "topic": "home/security/status/receiver",
+        "message": "OFFLINE",
+        "qos": 1,
+        "retain": true
+    },
+    "reconnect_settings": {
+        "max_retries": 10,
+        "base_delay": 5,
+        "max_delay": 120,
+        "use_exponential_backoff": true
+    },
+    "client_id_settings": {
+        "use_random_suffix": true,
+        "persistent_storage": false,
+        "storage_path": "../data/mqtt_client_id.txt"
+    }
+}

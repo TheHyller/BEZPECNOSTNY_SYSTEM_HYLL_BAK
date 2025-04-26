@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>MQTT Monitor - Domáci bezpečnostný systém</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        h2 { text-align: center; }
+        .nav-menu { display: flex; justify-content: center; margin-bottom: 20px; }
+        .nav-menu a { padding: 10px 15px; text-decoration: none; color: #455a64; font-weight: bold; border-radius: 4px; }
+        .nav-menu a:hover { background-color: #f0f0f0; }
+        .nav-menu a.active { background-color: #009688; color: #fff; }
+        .status-card { padding: 16px; margin-bottom: 16px; border-radius: 8px; background: #f8f9fa; }
+        .broker-status { display: flex; align-items: center; margin-bottom: 16px; }
+        .status-indicator { width: 16px; height: 16px; border-radius: 50%; margin-right: 10px; }
+        .status-online { background-color: #388e3c; }
+        .status-offline { background-color: #d32f2f; }
+        .card-title { font-weight: bold; margin-bottom: 8px; }
+        .device-list { margin-top: 24px; }
+        .device-item { padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #ddd; background: #f1f3f5; }
+        .device-item.online { border-left-color: #388e3c; }
+        .device-item.offline { border-left-color: #d32f2f; }
+        .device-header { display: flex; justify-content: space-between; align-items: center; }
+        .device-name { font-weight: bold; }
+        .device-status { font-size: 0.8em; padding: 3px 8px; border-radius: 12px; }
+        .status-online { background: #e8f5e9; color: #388e3c; }
+        .status-offline { background: #ffebee; color: #d32f2f; }
+        .device-details { margin-top: 8px; font-size: 0.9em; color: #666; }
+        .actions { margin-top: 24px; text-align: center; }
+        .btn { padding: 10px 24px; font-size: 1em; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; margin: 0 8px; }
+        .btn-refresh { background: #039be5; }
+        .config-form { margin: 24px 0; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type=text], input[type=password], input[type=number] { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-row { 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .form-row > div {
+            flex: 1;
+            min-width: 200px;
+        }
+        .form-check {
+            margin: 16px 0;
+        }
+        .form-check input {
+            margin-right: 8px;
+        }
+        .card-section {
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #eee;
+        }
+        .last-update { text-align: right; color: #666; font-size: 0.8em; margin-top: 16px; }
+        .hidden { display: none; }
+        .mqtt-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .stat-box {
+            padding: 12px;
+            background: #f1f3f5;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+        .error-message {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        .success-message {
+            color: #388e3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>MQTT Monitor</h2>
+    
+    <!-- Navigačné menu -->
+    <div class="nav-menu">
+        <a href="/">Dashboard</a>
+        <a href="/sensors">Senzory</a>
+        <a href="/alerts">Upozornenia</a>
+        <a href="/mqtt" class="active">MQTT Monitor</a>
+    </div>
+    
+    <!-- Status karty -->
+    <div class="status-card">
+        <div class="card-section">
+            <div class="card-title">Stav MQTT brokera</div>
+            <div class="broker-status">
+                <span id="brokerStatusIndicator" class="status-indicator status-offline"></span>
+                <span id="brokerStatus">Odpojený</span>
+            </div>
+            <div class="mqtt-stats">
+                <div class="stat-box">
+                    <div>Pripojené zariadenia</div>
+                    <div id="deviceCount" class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>Online zariadenia</div>
+                    <div id="onlineDeviceCount" class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>Prijaté správy</div>
+                    <div id="messageCount" class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>Doba behu</div>
+                    <div id="uptime" class="stat-value">0m</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-section">
+            <div class="card-title">MQTT Konfigurácia</div>
+            <div id="configMessage" class="hidden"></div>
+            <form id="mqttConfigForm" class="config-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="broker">MQTT Broker</label>
+                        <input type="text" id="broker" name="broker" placeholder="localhost alebo IP adresa">
+                    </div>
+                    <div class="form-group">
+                        <label for="port">Port</label>
+                        <input type="number" id="port" name="port" placeholder="1883">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="username">Používateľské meno (voliteľné)</label>
+                        <input type="text" id="username" name="username" placeholder="Používateľské meno">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Heslo (voliteľné)</label>
+                        <input type="password" id="password" name="password" placeholder="Heslo">
+                    </div>
+                </div>
+                
+                <div class="form-check">
+                    <input type="checkbox" id="useTls" name="use_tls">
+                    <label for="useTls">Použiť TLS šifrovanie</label>
+                </div>
+                
+                <div class="form-group">
+                    <label for="clientIdPrefix">Prefix ID klienta</label>
+                    <input type="text" id="clientIdPrefix" name="client_id_prefix" placeholder="home_security_">
+                </div>
+                
+                <div class="actions">
+                    <button type="submit" class="btn">Uložiť nastavenia</button>
+                    <button type="button" class="btn btn-refresh" onclick="reconnectMqtt()">Znovu pripojiť</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Zoznam zariadení -->
+    <div id="deviceList" class="device-list">
+        <div class="card-title">Pripojené zariadenia</div>
+        <div id="deviceListItems">
+            <div class="loading">Načítavam zariadenia...</div>
+        </div>
+    </div>
+    
+    <div class="actions">
+        <button class="btn" onclick="location.href='/'">Späť na hlavnú stránku</button>
+    </div>
+    
+    <div class="last-update" id="lastUpdate"></div>
+</div>
+
+<script>
+// Načítanie konfigurácie
+function loadMqttConfig() {
+    fetch('/api/mqtt/config')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('broker').value = data.broker || '';
+            document.getElementById('port').value = data.port || 1883;
+            document.getElementById('username').value = data.username || '';
+            document.getElementById('password').value = data.password || '';
+            document.getElementById('useTls').checked = data.use_tls || false;
+            document.getElementById('clientIdPrefix').value = data.client_id_prefix || 'home_security_';
+        })
+        .catch(error => {
+            console.error('Chyba pri načítavaní MQTT konfigurácie:', error);
+            showMessage('Nepodarilo sa načítať MQTT konfiguráciu', true);
+        });
+}
+
+// Uloženie konfigurácie
+document.getElementById('mqttConfigForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const config = {
+        broker: document.getElementById('broker').value,
+        port: parseInt(document.getElementById('port').value),
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        use_tls: document.getElementById('useTls').checked,
+        client_id_prefix: document.getElementById('clientIdPrefix').value
+    };
+    
+    fetch('/api/mqtt/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Nastavenia úspešne uložené', false);
+        } else {
+            showMessage('Chyba pri ukladaní nastavení: ' + data.message, true);
+        }
+    })
+    .catch((error) => {
+        console.error('Chyba:', error);
+        showMessage('Chyba pri odosielaní požiadavky', true);
+    });
+});
+
+// Zobrazenie správy
+function showMessage(message, isError) {
+    const messageElement = document.getElementById('configMessage');
+    messageElement.textContent = message;
+    messageElement.className = isError ? 'error-message' : 'success-message';
+    messageElement.classList.remove('hidden');
+    
+    // Skrytie správy po 5 sekundách
+    setTimeout(() => {
+        messageElement.classList.add('hidden');
+    }, 5000);
+}
+
+// Opätovné pripojenie k MQTT
+function reconnectMqtt() {
+    fetch('/api/mqtt/reconnect', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Požiadavka na znovu pripojenie odoslaná. Pripájam..', false);
+            setTimeout(updateBrokerStatus, 2000);
+        } else {
+            showMessage('Chyba pri opätovnom pripájaní: ' + data.message, true);
+        }
+    })
+    .catch(error => {
+        console.error('Chyba pri opätovnom pripájaní:', error);
+        showMessage('Chyba pri odosielaní požiadavky na opätovné pripojenie', true);
+    });
+}
+
+// Aktualizácia stavu brokera
+function updateBrokerStatus() {
+    fetch('/api/mqtt/status')
+        .then(response => response.json())
+        .then(data => {
+            const statusIndicator = document.getElementById('brokerStatusIndicator');
+            const statusText = document.getElementById('brokerStatus');
+            
+            if (data.connected) {
+                statusIndicator.className = 'status-indicator status-online';
+                statusText.textContent = 'Pripojený k ' + data.broker + ':' + data.port;
+            } else {
+                statusIndicator.className = 'status-indicator status-offline';
+                statusText.textContent = 'Odpojený od MQTT brokera';
+            }
+            
+            document.getElementById('deviceCount').textContent = data.device_count || 0;
+            document.getElementById('onlineDeviceCount').textContent = data.online_device_count || 0;
+            document.getElementById('messageCount').textContent = data.message_count || 0;
+            document.getElementById('uptime').textContent = formatUptime(data.uptime || 0);
+            
+            document.getElementById('lastUpdate').textContent = 'Aktualizované: ' + new Date().toLocaleTimeString();
+        })
+        .catch(error => {
+            console.error('Chyba pri aktualizácii stavu MQTT brokera:', error);
+            const statusIndicator = document.getElementById('brokerStatusIndicator');
+            const statusText = document.getElementById('brokerStatus');
+            statusIndicator.className = 'status-indicator status-offline';
+            statusText.textContent = 'Chyba pri získavaní stavu MQTT brokera';
+        });
+}
+
+// Formátovanie času prevádzky
+function formatUptime(seconds) {
+    if (seconds < 60) return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds/60) + 'm ' + (seconds%60) + 's';
+    if (seconds < 86400) return Math.floor(seconds/3600) + 'h ' + Math.floor((seconds%3600)/60) + 'm';
+    return Math.floor(seconds/86400) + 'd ' + Math.floor((seconds%86400)/3600) + 'h';
+}
+
+// Aktualizácia zariadení
+function updateDevices() {
+    fetch('/api/mqtt/devices')
+        .then(response => response.json())
+        .then(data => {
+            const deviceList = document.getElementById('deviceListItems');
+            deviceList.innerHTML = '';
+            
+            if (data.devices && data.devices.length > 0) {
+                data.devices.forEach(device => {
+                    const deviceItem = document.createElement('div');
+                    deviceItem.className = `device-item ${device.status === 'ONLINE' ? 'online' : 'offline'}`;
+                    
+                    const lastSeen = device.last_seen ? new Date(device.last_seen).toLocaleString() : 'Nikdy';
+                    
+                    deviceItem.innerHTML = `
+                        <div class="device-header">
+                            <div class="device-name">${device.name || device.id}</div>
+                            <div class="device-status status-${device.status === 'ONLINE' ? 'online' : 'offline'}">
+                                ${device.status}
+                            </div>
+                        </div>
+                        <div class="device-details">
+                            <div>ID: ${device.id}</div>
+                            <div>Miestnosť: ${device.room || 'Nezadaná'}</div>
+                            <div>IP: ${device.ip || 'Neznáma'}</div>
+                            <div>Posledná aktivita: ${lastSeen}</div>
+                        </div>
+                    `;
+                    
+                    deviceList.appendChild(deviceItem);
+                });
+            } else {
+                deviceList.innerHTML = '<div>Žiadne zariadenia neboli nájdené.</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Chyba pri načítavaní zariadení:', error);
+            document.getElementById('deviceListItems').innerHTML = 
+                '<div class="error-message">Nepodarilo sa načítať informácie o zariadeniach.</div>';
+        });
+}
+
+// Vykonanie inicializácie pri načítaní stránky
+function init() {
+    loadMqttConfig();
+    updateBrokerStatus();
+    updateDevices();
+}
+
+// Nastavenie periodických aktualizácií
+init();
+setInterval(updateBrokerStatus, 5000);
+setInterval(updateDevices, 10000);
+</script>
+</body>
+</html>

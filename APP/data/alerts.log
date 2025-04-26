@@ -1,0 +1,56 @@
+[
+  {
+    "timestamp": "2025-04-26T13:38:59.608207",
+    "unix_time": 1745667539,
+    "message": "Systém zabezpečený v režime Preč",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-26T13:38:29.626391",
+    "unix_time": 1745667509,
+    "message": "Systém deaktivovaný",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-26T13:38:15.518887",
+    "unix_time": 1745667495,
+    "message": "Systém zabezpečený v režime Doma",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:21:18.234991",
+    "unix_time": 1745605278,
+    "message": "Systém deaktivovaný",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:21:08.365676",
+    "unix_time": 1745605268,
+    "message": "Systém zabezpečený v režime Doma",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:20:56.657809",
+    "unix_time": 1745605256,
+    "message": "Systém deaktivovaný",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:20:52.036254",
+    "unix_time": 1745605252,
+    "message": "Systém zabezpečený v režime Doma",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:20:37.727423",
+    "unix_time": 1745605237,
+    "message": "Systém bol deaktivovaný",
+    "level": "info"
+  },
+  {
+    "timestamp": "2025-04-25T20:20:32.566678",
+    "unix_time": 1745605232,
+    "message": "Systém zabezpečený v režime Doma",
+    "level": "info"
+  }
+]

@@ -6,8 +6,8 @@
 #include <time.h>
 
 // ---------- KONFIGURÁCIA ----------
-const char* ssid = "Dusan";       // Zadajte názov vašej WiFi siete
-const char* password = "doma2015"; // Zadajte heslo k vašej WiFi sieti
+const char* ssid = "WIFI";       // Zadajte názov vašej WiFi siete
+const char* password = "PASS"; // Zadajte heslo k vašej WiFi sieti
 const char* deviceId = "esp_tester_1";     // Identifikátor zariadenia
 const char* deviceRoom = "Obývačka";       // Miestnosť umiestnenia
 const int LED_PIN = 2;                     // LED na signalizáciu aktivity (D4 na NodeMCU)
@@ -31,7 +31,7 @@ WiFiUDP udp;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 char rec_ip[16] = "";
-const int UDP_DISCOVER_PORT = 8082;
+const int UDP_DISCOVER_PORT = 12345;  // Zmenené z 8082 pre konzistenciu so zvyškom systému
 const int UDP_STATUS_PORT = 8081;
 
 // Intervaly pre simuláciu (v ms)
@@ -203,29 +203,76 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void discoverReceiver() {
-  Serial.println("Vyhľadávanie prijímača (UDP)...");
+  Serial.println("Vyhľadávanie MQTT brokera (UDP)...");
   udp.begin(UDP_DISCOVER_PORT);
   
-  // Poslanie broadcast paketu pre objavenie prijímača
+  // Príprava JSON správy pre discovery request
+  StaticJsonDocument<256> doc;
+  doc["type"] = "mqtt_discovery_request";
+  doc["device_id"] = deviceId;
+  doc["device_name"] = deviceRoom;
+  
+  char jsonBuffer[256];
+  size_t n = serializeJson(doc, jsonBuffer);
+  
+  // Odoslanie broadcast paketu
   udp.beginPacket("255.255.255.255", UDP_DISCOVER_PORT);
-  udp.write("DISCOVER:SENDER");
+  udp.write((uint8_t*)jsonBuffer, n);
   udp.endPacket();
+  
+  Serial.print("Odoslaná broadcast požiadavka na port ");
+  Serial.println(UDP_DISCOVER_PORT);
   
   // Čakanie na odpoveď
   unsigned long startTime = millis();
   bool receiverFound = false;
   
-  while (millis() - startTime < 5000) {
+  while (millis() - startTime < 5000) {  // 5 sekúnd timeout
     int packetSize = udp.parsePacket();
     if (packetSize) {
-      char reply[64];
-      udp.read(reply, 64);
-      reply[packetSize] = 0; // Null termination
+      char packetBuffer[255];
+      int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+      packetBuffer[len] = '\0';
       
-      if (strstr(reply, "SECURITY_SYSTEM:ONLINE")) {
-        udp.remoteIP().toString().toCharArray(rec_ip, 16);
-        Serial.print("Prijímač nájdený - IP: ");
-        Serial.println(rec_ip);
+      Serial.print("Prijatý UDP paket, veľkosť: ");
+      Serial.println(packetSize);
+      
+      // Parsovanie JSON správy
+      StaticJsonDocument<512> responseDoc;
+      DeserializationError error = deserializeJson(responseDoc, packetBuffer);
+      
+      if (error) {
+        Serial.print("deserializeJson() zlyhalo: ");
+        Serial.println(error.c_str());
+        continue; // Skúsime ďalší paket
+      }
+      
+      // Kontrola, či ide o MQTT discovery správu alebo odpoveď
+      if (responseDoc.containsKey("type") && 
+          (strcmp(responseDoc["type"], "mqtt_discovery") == 0 || 
+           strcmp(responseDoc["type"], "mqtt_discovery_response") == 0)) {
+        // Získanie IP adresy a portu brokera
+        const char* discovered_broker = responseDoc["broker_ip"];
+        int discovered_port = responseDoc["broker_port"];
+        
+        Serial.print("Nájdený MQTT broker na IP: ");
+        Serial.print(discovered_broker);
+        Serial.print(" port: ");
+        Serial.println(discovered_port);
+        
+        // Aktualizácia konfigurácie MQTT
+        strncpy(rec_ip, discovered_broker, sizeof(rec_ip));
+        
+        // Aktualizácia MQTT brokera, ak sa líši od aktuálneho
+        if (strcmp(discovered_broker, mqtt_server) != 0 || discovered_port != mqtt_port) {
+          Serial.println("Aktualizujem MQTT nastavenia...");
+          // Ak už sme pripojení k brokeru, odpojíme sa
+          if (mqttClient.connected()) {
+            mqttClient.disconnect();
+          }
+          mqttClient.setServer(discovered_broker, discovered_port);
+        }
+        
         receiverFound = true;
         break;
       }
@@ -234,7 +281,7 @@ void discoverReceiver() {
   }
   
   if (!receiverFound) {
-    Serial.println("UDP prijímač nebol nájdený!");
+    Serial.println("MQTT broker nebol nájdený v časovom limite.");
   }
 }
 

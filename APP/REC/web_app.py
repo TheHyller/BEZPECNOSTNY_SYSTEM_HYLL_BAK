@@ -158,13 +158,19 @@ def api_disarm_system():
         # Aktualizácia stavu systému
         update_state({
             "armed_mode": "disarmed", 
-            "alarm_active": False, 
+            "alarm_active": False,
+            "alarm_countdown_active": False,  # Explicitly disable countdown
+            "alarm_countdown_deadline": None,
+            "alarm_trigger_message": None,
             "failed_attempts": 0
         })
         
-        # Ak je aktívny alarm, zastavíme ho
-        if ns.is_alarm_active():
+        # Ak je aktívny alarm alebo odpočítavanie, zastavíme ho
+        if ns.is_alarm_active() or ns.is_alarm_countdown_active():
             ns.stop_alarm()
+        
+        # Synchronizácia interného stavu s aktuálnym systémovým stavom
+        ns.sync_state_from_system()
         
         # Odoslanie notifikácie
         ns.send_notification("Systém deaktivovaný")
@@ -191,7 +197,16 @@ def api_stop_alarm():
         
         # Zastavenie alarmu a deaktivácia systému
         ns.stop_alarm()
-        update_state({"armed_mode": "disarmed"})
+        update_state({
+            "armed_mode": "disarmed",
+            "alarm_active": False,
+            "alarm_countdown_active": False,
+            "alarm_countdown_deadline": None,
+            "alarm_trigger_message": None
+        })
+        
+        # Synchronizácia interného stavu s aktuálnym systémovým stavom
+        ns.sync_state_from_system()
         
         # Odoslanie notifikácie
         ns.send_notification("Alarm zastavený a systém deaktivovaný")

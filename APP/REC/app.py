@@ -50,8 +50,11 @@ class SecurityApp(MDApp):
         self.title = "Domáci bezpečnostný systém"
         self.sm = ScreenManager()
         
-        # Reset system state to fix any stuck countdown issues
+        # Reset system state to fix any stuck countdown issues while preserving armed mode
         reset_system_state()
+        
+        # Ensure notification service state is synced with system state file
+        ns.sync_state_from_system()
         
         # Nastavenie témy aplikácie - výraznejšie farby pre lepšiu viditeľnosť
         self.theme_cls.primary_palette = "Blue"

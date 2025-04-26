@@ -529,3 +529,23 @@ def update_additional_trigger_message(new_message):
         update_state({"alarm_trigger_message": _alarm_trigger_message})
         
     return _alarm_trigger_message
+
+# Add a function to sync internal state with system state
+def sync_state_from_system():
+    """Synchronize the internal state variables with the system state file."""
+    global _alarm_active, _alarm_countdown_active, _alarm_countdown_deadline, _alarm_trigger_message
+    
+    try:
+        system_state = load_state()
+        
+        # Update internal state variables from system state
+        _alarm_active = system_state.get("alarm_active", False)
+        _alarm_countdown_active = system_state.get("alarm_countdown_active", False)
+        _alarm_countdown_deadline = system_state.get("alarm_countdown_deadline", None)
+        _alarm_trigger_message = system_state.get("alarm_trigger_message", None)
+        
+        logging.info("Internal state synchronized with system state file")
+        return True
+    except Exception as e:
+        logging.error(f"Error synchronizing states: {e}")
+        return False

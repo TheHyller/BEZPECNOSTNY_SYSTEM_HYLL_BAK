@@ -127,6 +127,7 @@ python SEND/TESTER.py
   python REC/web_app.py
   ```
   Následne otvorte prehliadač na adrese http://localhost:5000
+  Alebo otvorte prehliadač na adrese http://(IP-Rec_jednotka):5000
 
 ### ESP_SEND modul
 1. Otvorte súbor `ESP_SEND/ESP_SEND.ino` v Arduino IDE
@@ -173,9 +174,9 @@ Príspevky sú vítané! Ak chcete prispieť:
 Tento projekt je distribuovaný pod licenciou MIT. Pre viac informácií si pozrite súbor [LICENSE](LICENSE).
 
 ## 📞 Kontakt
-Meno Autora - [email@example.com](mailto:email@example.com)
+Meno Autora - [hyll@hylllab.eu](mailto:hyll@hylllab.eu)
 
-Project Link: [https://github.com/username/home-security-system](https://github.com/username/home-security-system)
+Project Link: [https://github.com/Hyller/home-security-system](https://github.com/Hyller/home-security-system)
 
 ---
 

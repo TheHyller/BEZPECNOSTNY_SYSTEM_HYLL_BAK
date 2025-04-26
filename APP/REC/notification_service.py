@@ -158,7 +158,25 @@ def send_notification(message, level="info", image_path=None):
             # Ak je systém zabezpečený a alarm ešte nie je aktívny, spustíme ho
             if armed_mode != 'disarmed' and not system_state.get('alarm_active', False):
                 logging.warning(f"Spúšťa sa alarm na základe notifikácie: {message}")
+                # Ensure we update the system state first
+                update_state({"alarm_active": True})
                 play_alarm()
+                # Try to show the disarm screen by updating app state
+                from kivy.clock import Clock
+                from functools import partial
+                def show_disarm_dialog(dt):
+                    try:
+                        from kivy.app import App
+                        app = App.get_running_app()
+                        if hasattr(app, 'sm'):
+                            dashboard = app.sm.get_screen('dashboard')
+                            if hasattr(dashboard, 'stop_alarm'):
+                                dashboard.stop_alarm()
+                    except Exception as e:
+                        logging.error(f"Failed to show disarm dialog: {e}")
+                
+                # Schedule showing the disarm dialog after a short delay
+                Clock.schedule_once(show_disarm_dialog, 0.5)
         
         logging.info(f"Notifikácia odoslaná: {message}")
         return True

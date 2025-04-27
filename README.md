@@ -126,7 +126,7 @@ python SEND/TESTER.py
   ```bash
   python REC/web_app.py
   ```
-  Následne otvorte prehliadač na adrese http://localhost:5000
+  Následne otvorte prehliadač na adrese http://localhost:5000 
   Alebo otvorte prehliadač na adrese http://(IP-Rec_jednotka):5000
 
 ### ESP_SEND modul

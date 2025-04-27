@@ -339,6 +339,5 @@ Potenciálne vylepšenia pre budúce verzie:
 
 - Detekcia pohybu založená na AI pre redukciu falošných poplachov
 - Cloudová integrácia pre vzdialené monitorovanie
-- Vývoj mobilnej aplikácie
 - Integrácia hlasového asistenta
 - Rozšírené typy senzorov (dym, voda, plyn)

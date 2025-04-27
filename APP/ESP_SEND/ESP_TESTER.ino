@@ -1,4 +1,4 @@
-// ESP_TESTER.ino - Testovací program pre ESP8266/ESP32 bez fyzických senzorov
+// ESP_TESTER.ino - Testovací program pre ESP8266 bez fyzických senzorov
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>

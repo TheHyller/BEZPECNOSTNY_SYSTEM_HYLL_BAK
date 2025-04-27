@@ -37,7 +37,7 @@ Tento domáci bezpečnostný systém umožňuje komplexné monitorovanie a sprá
 Systém sa skladá z troch hlavných modulov:
 
 - **SEND modul** (Raspberry Pi, Python) - Zber a odosielanie senzorických dát z fyzického zariadenia
-- **ESP_SEND modul** (ESP8266/ESP32, Arduino) - Alternatívny hardvérový zber dát z mikrokontrolérov
+- **ESP_SEND modul** (ESP8266, Arduino) - Alternatívny hardvérový zber dát z mikrokontrolérov
 - **REC modul** (Python Kivy/Flask) - Užívateľské rozhranie a spracovanie dát v desktop a webovej verzii
 
 Komunikácia medzi modulmi prebieha cez protokol MQTT, čo zabezpečuje rýchlu a spoľahlivú výmenu dát.
@@ -45,7 +45,7 @@ Komunikácia medzi modulmi prebieha cez protokol MQTT, čo zabezpečuje rýchlu 
 ## 📋 Požiadavky
 - Python 3.7+
 - Raspberry Pi 3/4 (pre SEND modul)
-- ESP8266/ESP32 (pre ESP_SEND modul)
+- ESP8266 (pre ESP_SEND modul)
 - MQTT Broker (napr. Mosquitto)
 - Kivy (pre desktop aplikáciu)
 - Flask (pre webovú aplikáciu)
@@ -78,7 +78,7 @@ pip install -r REC/requirements.txt
 
 ### ESP_SEND modul
 1. Nainštalujte Arduino IDE z [arduino.cc](https://www.arduino.cc/en/software)
-2. Nainštalujte podporu pre ESP8266/ESP32 cez Board Manager
+2. Nainštalujte podporu pre ESP8266 cez Board Manager
 3. Nainštalujte potrebné knižnice:
    - PubSubClient
    - ArduinoJson
@@ -144,7 +144,7 @@ Webová aplikácia poskytuje API pre integráciu s inými systémami. Dokumentá
 │   ├── SEND.py        # Hlavný program pre zber dát
 │   ├── TESTER.py      # Testovací program
 │   └── config.json    # Konfiguračný súbor
-├── ESP_SEND/          # ESP8266/ESP32 senzorický modul
+├── ESP_SEND/          # ESP8266 senzorický modul
 │   ├── ESP_SEND.ino   # Hlavný program pre ESP
 │   └── ESP_TESTER.ino # Testovací program
 ├── REC/               # Prijímací modul

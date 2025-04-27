@@ -1,4 +1,4 @@
-// ESP_SEND.ino - Hlavný Arduino skript pre ESP8266/ESP32
+// ESP_SEND.ino - Hlavný Arduino skript pre ESP8266
 #include <ESP8266WiFi.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>

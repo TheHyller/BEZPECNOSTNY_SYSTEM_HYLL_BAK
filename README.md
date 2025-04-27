@@ -136,7 +136,7 @@ python SEND/TESTER.py
 4. Pre testovanie použite `ESP_SEND/ESP_TESTER.ino`
 
 ## 📚 API dokumentácia
-Webová aplikácia poskytuje API pre integráciu s inými systémami. Dokumentáciu API nájdete v [technical_documentation.md](technical_documentation.md).
+Webová aplikácia poskytuje API pre integráciu s inými systémami. Dokumentáciu API nájdete v [technicka_documentacia.md](technicka_dokumentacia.md).
 
 ## 📁 Štruktúra projektu
 ```

@@ -228,7 +228,8 @@ def send_email(message, settings=None):
     if settings is None:
         settings = load_settings()
     
-    email_config = settings.get("email_config", {})
+    # Oprava: použitie správneho kľúča pre e-mailové nastavenia
+    email_config = settings.get("email_settings", {})
     recipient = email_config.get("recipient")
     
     # Ak nie je nastavený príjemca, nemôžeme poslať e-mail
@@ -253,27 +254,33 @@ def send_email(message, settings=None):
         
         msg.attach(MIMEText(body, 'plain'))
         
-        # Nastavenie SMTP servera
-        server = smtplib.SMTP(
-            email_config.get("smtp_server", "smtp.gmail.com"),
-            email_config.get("smtp_port", 587)
-        )
-        server.starttls()
+        # Získanie portu a servera
+        smtp_server = email_config.get("smtp_server", "smtp.gmail.com")
+        smtp_port = email_config.get("smtp_port", 587)
+        
+        # Nastavenie SMTP servera - oprava pre port 465 (SSL) vs 587 (TLS)
+        if smtp_port == 465:
+            # Pre port 465 použiť SSL pripojenie
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port)
+        else:
+            # Pre porty ako 587 použiť štandardné pripojenie s TLS
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
         
         # Prihlásenie a odoslanie e-mailu
-        server.login(
-            email_config.get("username", ""),
-            email_config.get("password", "")
-        )
+        username = email_config.get("username", "")
+        password = email_config.get("password", "")
+        
+        if not username or not password:
+            logging.warning("Nepodarilo sa odoslať e-mail: Chýba používateľské meno alebo heslo")
+            return False
+        
+        server.login(username, password)
         text = msg.as_string()
-        server.sendmail(
-            email_config.get("username", ""),
-            recipient,
-            text
-        )
+        server.sendmail(username, recipient, text)
         server.quit()
         
-        logging.info(f"E-mail odoslaný na adresu: {recipient}")
+        logging.info(f"E-mail úspešne odoslaný na adresu: {recipient}")
         return True
     except Exception as e:
         logging.error(f"Chyba pri odosielaní e-mailu: {e}")

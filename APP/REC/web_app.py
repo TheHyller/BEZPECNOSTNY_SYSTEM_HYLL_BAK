@@ -60,6 +60,10 @@ def alerts_page():
 def mqtt_page():
     return render_template('mqtt_status.html')
 
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
+
 @app.route('/api/sensors', methods=['GET'])
 def api_sensors():
     devices = load_devices()
@@ -478,6 +482,128 @@ def api_mqtt_command():
     except Exception as e:
         app.logger.error(f"Chyba pri odosielaní MQTT príkazu: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/settings', methods=['GET'])
+def api_settings():
+    """API endpoint pre získanie aktuálnych nastavení systému."""
+    try:
+        settings = load_settings()
+        return jsonify(settings)
+    except Exception as e:
+        app.logger.error(f"Chyba pri načítavaní nastavení: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/settings/pin', methods=['POST'])
+def api_settings_pin():
+    """API endpoint pre zmenu PIN kódu."""
+    try:
+        data = request.get_json()
+        old_pin = data.get('oldPin')
+        new_pin = data.get('newPin')
+        
+        if not old_pin or not new_pin:
+            return jsonify({"success": False, "message": "Chýba starý alebo nový PIN"}), 400
+            
+        if len(new_pin) < 4:
+            return jsonify({"success": False, "message": "PIN musí mať aspoň 4 znaky"}), 400
+            
+        settings = load_settings()
+        
+        if old_pin != settings.get('pin_code'):
+            return jsonify({"success": False, "message": "Nesprávny aktuálny PIN kód"}), 401
+            
+        # Aktualizácia PIN kódu
+        settings['pin_code'] = new_pin
+        save_settings(settings)
+        
+        return jsonify({"success": True, "message": "PIN kód bol úspešne aktualizovaný"})
+    except Exception as e:
+        app.logger.error(f"Chyba pri aktualizácii PIN kódu: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/settings/notifications', methods=['POST'])
+def api_settings_notifications():
+    """API endpoint pre aktualizáciu nastavení notifikácií."""
+    try:
+        data = request.get_json()
+        sound_enabled = data.get('sound')
+        email_enabled = data.get('email')
+        
+        if sound_enabled is None or email_enabled is None:
+            return jsonify({"success": False, "message": "Chýbajú parametre notifikačných nastavení"}), 400
+            
+        settings = load_settings()
+        
+        if "notification_preferences" not in settings:
+            settings["notification_preferences"] = {}
+            
+        settings["notification_preferences"]["sound"] = sound_enabled
+        settings["notification_preferences"]["email"] = email_enabled
+        
+        save_settings(settings)
+        
+        return jsonify({"success": True, "message": "Nastavenia notifikácií boli úspešne aktualizované"})
+    except Exception as e:
+        app.logger.error(f"Chyba pri aktualizácii nastavení notifikácií: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/settings/email', methods=['POST'])
+def api_settings_email():
+    """API endpoint pre aktualizáciu e-mailových nastavení."""
+    try:
+        data = request.get_json()
+        
+        # Validácia požadovaných polí
+        required_fields = ['enabled', 'smtp_server', 'smtp_port', 'username', 'recipient']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"success": False, "message": f"Chýba parameter {field}"}), 400
+                
+        # Načítanie existujúcich nastavení
+        settings = load_settings()
+        
+        if "email_settings" not in settings:
+            settings["email_settings"] = {}
+            
+        # Aktualizácia polí
+        settings["email_settings"]["enabled"] = data["enabled"]
+        settings["email_settings"]["smtp_server"] = data["smtp_server"]
+        settings["email_settings"]["smtp_port"] = data["smtp_port"]
+        settings["email_settings"]["username"] = data["username"]
+        settings["email_settings"]["recipient"] = data["recipient"]
+        
+        # Aktualizácia hesla, len ak bolo zadané nové
+        if "password" in data:
+            settings["email_settings"]["password"] = data["password"]
+            
+        save_settings(settings)
+        
+        return jsonify({"success": True, "message": "E-mailové nastavenia boli úspešne aktualizované"})
+    except Exception as e:
+        app.logger.error(f"Chyba pri aktualizácii e-mailových nastavení: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/settings/email/test', methods=['POST'])
+def api_settings_email_test():
+    """API endpoint pre odoslanie testovacieho e-mailu."""
+    try:
+        settings = load_settings()
+        
+        # Kontrola, či sú nastavenia e-mailu nakonfigurované
+        if not settings.get("email_settings") or not settings["email_settings"].get("enabled"):
+            return jsonify({"success": False, "message": "E-mailové notifikácie nie sú povolené"}), 400
+            
+        # Skúsime poslať testovací e-mail
+        test_message = "Toto je testovacia správa z vášho domáceho bezpečnostného systému."
+        success = ns.send_email(test_message, settings)
+        
+        if success:
+            return jsonify({"success": True, "message": "Testovací e-mail bol úspešne odoslaný"})
+        else:
+            return jsonify({"success": False, "message": "Nepodarilo sa odoslať testovací e-mail"}), 500
+    except Exception as e:
+        app.logger.error(f"Chyba pri odosielaní testovacieho e-mailu: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
 
 def get_sensor_name(sensor_type):
     names = {

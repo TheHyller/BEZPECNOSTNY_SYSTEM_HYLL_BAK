@@ -31,7 +31,7 @@ WiFiUDP udp;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 char rec_ip[16] = "";
-const int UDP_DISCOVER_PORT = 12345;  // Zmenené z 8082 pre konzistenciu so zvyškom systému
+const int UDP_DISCOVER_PORT = 12345;  // Port pre UDP discovery
 const int UDP_STATUS_PORT = 8081;
 
 // Intervaly pre simuláciu (v ms)

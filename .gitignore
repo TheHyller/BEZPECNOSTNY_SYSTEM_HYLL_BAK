@@ -1,2 +1,5 @@
 *.pyc
 APP/.github/copilot-instructions.md
+/uml
+APP/data/settings.json
+APP/data/system_state.json

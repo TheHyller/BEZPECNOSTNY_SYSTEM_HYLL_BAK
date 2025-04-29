@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>Nastavenia - Domáci bezpečnostný systém</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        h2 { text-align: center; margin-top: 0; }
+        .nav-menu { display: flex; justify-content: center; margin-bottom: 20px; }
+        .nav-menu a { padding: 10px 15px; text-decoration: none; color: #455a64; font-weight: bold; border-radius: 4px; }
+        .nav-menu a:hover { background-color: #f0f0f0; }
+        .nav-menu a.active { background-color: #009688; color: #fff; }
+        
+        .card-section { 
+            margin-bottom: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #009688;
+        }
+        .card-title { font-weight: bold; margin-bottom: 16px; font-size: 1.2em; }
+        .form-row { 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-row > div {
+            flex: 1;
+            min-width: 200px;
+        }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type=text], input[type=password], input[type=number], input[type=email] { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-check {
+            margin: 16px 0;
+            display: flex;
+            align-items: center;
+        }
+        .form-check input {
+            margin-right: 8px;
+        }
+        .actions { margin-top: 24px; text-align: center; }
+        .btn { padding: 10px 24px; font-size: 1em; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; margin: 0 8px; }
+        .btn:hover { background: #1565c0; }
+        .success-message { 
+            color: #388e3c; 
+            background: #e8f5e9; 
+            border-left: 4px solid #388e3c; 
+            padding: 12px;
+            margin: 16px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .error-message { 
+            color: #d32f2f; 
+            background: #ffebee;
+            border-left: 4px solid #d32f2f;
+            padding: 12px;
+            margin: 16px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        .last-update { text-align: right; color: #666; font-size: 0.8em; margin-top: 16px; }
+        
+        /* PIN Section Styles */
+        .pin-section {
+            text-align: center;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        .status {
+            margin: 16px 0;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 16px 0;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .numpad button {
+            font-size: 1.3em;
+            padding: 16px;
+            border: none;
+            border-radius: 4px;
+            background: #607d8b;
+            color: #fff;
+            cursor: pointer;
+        }
+        .numpad button:active {
+            background: #455a64;
+        }
+        .msg {
+            color: #d32f2f;
+            text-align: center;
+            min-height: 24px;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Nastavenia systému</h2>
+    
+    <!-- Navigačné menu -->
+    <div class="nav-menu">
+        <a href="/">Dashboard</a>
+        <a href="/alerts">Upozornenia</a>
+        <a href="/mqtt">MQTT Monitor</a>
+        <a href="/settings" class="active">Nastavenia</a>
+    </div>
+    
+    <!-- PIN Authentication -->
+    <div id="pinSection" class="pin-section">
+        <div class="status">Zadajte PIN kód pre prístup k nastaveniam</div>
+        <input type="password" id="pinInput" readonly style="width:100%;max-width:300px;font-size:1.5em;text-align:center;margin-bottom:8px;" />
+        <div class="numpad">
+            <button onclick="pressNum(1)">1</button>
+            <button onclick="pressNum(2)">2</button>
+            <button onclick="pressNum(3)">3</button>
+            <button onclick="pressNum(4)">4</button>
+            <button onclick="pressNum(5)">5</button>
+            <button onclick="pressNum(6)">6</button>
+            <button onclick="pressNum(7)">7</button>
+            <button onclick="pressNum(8)">8</button>
+            <button onclick="pressNum(9)">9</button>
+            <button onclick="clearPin()">C</button>
+            <button onclick="pressNum(0)">0</button>
+            <button onclick="submitPin()">OK</button>
+        </div>
+        <div class="msg" id="pinErrorMsg"></div>
+    </div>
+    
+    <!-- Settings Container (initially hidden) -->
+    <div id="settingsContainer" style="display: none;">
+        <div id="statusMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+
+        <!-- PIN code settings -->
+        <div class="card-section">
+            <div class="card-title">Zmena PIN kódu</div>
+            <div class="form-group">
+                <label for="oldPin">Aktuálny PIN kód</label>
+                <input type="password" id="oldPin" name="oldPin" placeholder="Zadajte aktuálny PIN">
+            </div>
+            <div class="form-group">
+                <label for="newPin">Nový PIN kód</label>
+                <input type="password" id="newPin" name="newPin" placeholder="Zadajte nový PIN (min. 4 znaky)">
+            </div>
+            <div class="actions">
+                <button class="btn" onclick="updatePin()">Zmeniť PIN</button>
+            </div>
+        </div>
+        
+        <!-- Email notification settings -->
+        <div class="card-section">
+            <div class="card-title">Nastavenia notifikácií</div>
+            <div class="form-check">
+                <input type="checkbox" id="soundEnabled" name="soundEnabled">
+                <label for="soundEnabled">Povoliť zvukové upozornenia</label>
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="emailEnabled" name="emailEnabled">
+                <label for="emailEnabled">Povoliť e-mailové notifikácie</label>
+            </div>
+        </div>
+
+        <!-- Email settings -->
+        <div id="emailSettingsSection" class="card-section">
+            <div class="card-title">Nastavenia e-mailu</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="smtpServer">SMTP server</label>
+                    <input type="text" id="smtpServer" name="smtpServer" placeholder="napr. smtp.gmail.com">
+                </div>
+                <div class="form-group">
+                    <label for="smtpPort">SMTP port</label>
+                    <input type="number" id="smtpPort" name="smtpPort" placeholder="465">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="username">E-mailová adresa (odosielateľ)</label>
+                <input type="email" id="username" name="username" placeholder="vas@email.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Heslo (alebo app heslo)</label>
+                <input type="password" id="password" name="password" placeholder="heslo">
+            </div>
+            <div class="form-group">
+                <label for="recipient">E-mailová adresa (príjemca)</label>
+                <input type="email" id="recipient" name="recipient" placeholder="kam@posielat.com">
+            </div>
+            <div class="form-check">
+                <input type="checkbox" id="emailSettingsEnabled" name="emailSettingsEnabled">
+                <label for="emailSettingsEnabled">Aktivovať e-mailové upozornenia</label>
+            </div>
+            <div class="actions">
+                <button class="btn" onclick="testEmail()">Odoslať testovací e-mail</button>
+                <button class="btn" onclick="saveEmailSettings()">Uložiť nastavenia</button>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <button class="btn" onclick="location.href='/'">Späť na hlavnú stránku</button>
+            <button class="btn" onclick="logoutSettings()">Odhlásiť sa</button>
+        </div>
+        
+        <div class="last-update" id="lastUpdate"></div>
+    </div>
+</div>
+
+<script>
+// PIN Authentication Variables
+let pin = "";
+let authenticated = false;
+
+// PIN Authentication Functions
+function pressNum(n) {
+    if(pin.length < 6) {
+        pin += n;
+        document.getElementById('pinInput').value = '*'.repeat(pin.length);
+    }
+}
+
+function clearPin() {
+    pin = "";
+    document.getElementById('pinInput').value = "";
+    document.getElementById('pinErrorMsg').innerText = "";
+}
+
+function submitPin() {
+    // Validate PIN against system PIN
+    fetch('/api/pin', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pin: pin})
+    }).then(async r => {
+        const data = await r.json();
+        if(r.ok && data.success) {
+            // PIN is valid
+            authenticated = true;
+            document.getElementById('pinSection').style.display = 'none';
+            document.getElementById('settingsContainer').style.display = 'block';
+            clearPin();
+            loadSettings();
+        } else {
+            // PIN is invalid
+            document.getElementById('pinErrorMsg').innerText = data.message || 'Nesprávny PIN kód';
+            clearPin();
+        }
+    }).catch(err => {
+        document.getElementById('pinErrorMsg').innerText = 'Chyba komunikácie so serverom';
+        console.error(err);
+        clearPin();
+    });
+}
+
+function logoutSettings() {
+    authenticated = false;
+    document.getElementById('pinSection').style.display = 'block';
+    document.getElementById('settingsContainer').style.display = 'none';
+    clearPin();
+}
+
+// Načítanie aktuálnych nastavení
+function loadSettings() {
+    fetch('/api/settings')
+        .then(response => response.json())
+        .then(data => {
+            // Načítanie notifikačných preferencií
+            document.getElementById('soundEnabled').checked = data.notification_preferences?.sound || false;
+            document.getElementById('emailEnabled').checked = data.notification_preferences?.email || false;
+            
+            // Načítanie e-mailových nastavení
+            document.getElementById('smtpServer').value = data.email_settings?.smtp_server || '';
+            document.getElementById('smtpPort').value = data.email_settings?.smtp_port || 465;
+            document.getElementById('username').value = data.email_settings?.username || '';
+            document.getElementById('password').value = data.email_settings?.password ? '********' : '';
+            document.getElementById('recipient').value = data.email_settings?.recipient || '';
+            document.getElementById('emailSettingsEnabled').checked = data.email_settings?.enabled || false;
+            
+            document.getElementById('lastUpdate').innerText = `Aktualizované: ${new Date().toLocaleTimeString()}`;
+            toggleEmailSettings();
+        })
+        .catch(error => {
+            console.error('Chyba pri načítavaní nastavení:', error);
+            showError('Nepodarilo sa načítať nastavenia');
+        });
+}
+
+// Zmena PIN kódu
+function updatePin() {
+    const oldPin = document.getElementById('oldPin').value;
+    const newPin = document.getElementById('newPin').value;
+    
+    if (!oldPin) {
+        showError('Zadajte aktuálny PIN kód');
+        return;
+    }
+    
+    if (!newPin || newPin.length < 4) {
+        showError('Nový PIN musí mať aspoň 4 znaky');
+        return;
+    }
+    
+    fetch('/api/settings/pin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ oldPin, newPin })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('PIN kód bol úspešne zmenený');
+            document.getElementById('oldPin').value = '';
+            document.getElementById('newPin').value = '';
+        } else {
+            showError(data.message || 'Chyba pri zmene PIN kódu');
+        }
+    })
+    .catch(error => {
+        console.error('Chyba:', error);
+        showError('Chyba pri komunikácii so serverom');
+    });
+}
+
+// Uloženie nastavení notifikácií
+function saveNotificationPreferences() {
+    const soundEnabled = document.getElementById('soundEnabled').checked;
+    const emailEnabled = document.getElementById('emailEnabled').checked;
+    
+    fetch('/api/settings/notifications', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            sound: soundEnabled,
+            email: emailEnabled
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Nastavenia notifikácií boli úspešne uložené');
+            toggleEmailSettings();
+        } else {
+            showError(data.message || 'Chyba pri ukladaní nastavení notifikácií');
+        }
+    })
+    .catch(error => {
+        console.error('Chyba:', error);
+        showError('Chyba pri komunikácii so serverom');
+    });
+}
+
+// Uloženie e-mailových nastavení
+function saveEmailSettings() {
+    const emailSettings = {
+        enabled: document.getElementById('emailSettingsEnabled').checked,
+        smtp_server: document.getElementById('smtpServer').value,
+        smtp_port: parseInt(document.getElementById('smtpPort').value) || 465,
+        username: document.getElementById('username').value,
+        recipient: document.getElementById('recipient').value
+    };
+    
+    // Nastavenie hesla len ak bolo zmenené (nie je ******)
+    const password = document.getElementById('password').value;
+    if (password && password !== '********') {
+        emailSettings.password = password;
+    }
+    
+    // Validácia
+    if (!emailSettings.smtp_server) {
+        showError('Zadajte SMTP server');
+        return;
+    }
+    
+    if (!emailSettings.username) {
+        showError('Zadajte e-mailovú adresu odosielateľa');
+        return;
+    }
+    
+    if (!emailSettings.recipient) {
+        showError('Zadajte e-mailovú adresu príjemcu');
+        return;
+    }
+    
+    fetch('/api/settings/email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(emailSettings)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('E-mailové nastavenia boli úspešne uložené');
+        } else {
+            showError(data.message || 'Chyba pri ukladaní e-mailových nastavení');
+        }
+    })
+    .catch(error => {
+        console.error('Chyba:', error);
+        showError('Chyba pri komunikácii so serverom');
+    });
+}
+
+// Odoslanie testovacieho e-mailu
+function testEmail() {
+    fetch('/api/settings/email/test', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccess('Testovací e-mail bol úspešne odoslaný');
+        } else {
+            showError(data.message || 'Chyba pri odosielaní testovacieho e-mailu');
+        }
+    })
+    .catch(error => {
+        console.error('Chyba:', error);
+        showError('Chyba pri komunikácii so serverom');
+    });
+}
+
+// Zobrazenie chybovej správy
+function showError(message) {
+    const errorElement = document.getElementById('errorMessage');
+    errorElement.innerText = message;
+    errorElement.style.display = 'block';
+    
+    // Skryť správu po 5 sekundách
+    setTimeout(() => {
+        errorElement.style.display = 'none';
+    }, 5000);
+}
+
+// Zobrazenie úspešnej správy
+function showSuccess(message) {
+    const successElement = document.getElementById('statusMessage');
+    successElement.innerText = message;
+    successElement.style.display = 'block';
+    
+    // Skryť správu po 5 sekundách
+    setTimeout(() => {
+        successElement.style.display = 'none';
+    }, 5000);
+}
+
+// Prepínanie zobrazenia e-mailových nastavení
+function toggleEmailSettings() {
+    const emailEnabled = document.getElementById('emailEnabled').checked;
+    document.getElementById('emailSettingsSection').style.display = emailEnabled ? 'block' : 'none';
+}
+
+// Registrácia eventov
+document.addEventListener('DOMContentLoaded', function() {
+    // Registrácia reakcie na zmenu stavu notifikačných checkboxov
+    document.getElementById('soundEnabled').addEventListener('change', saveNotificationPreferences);
+    document.getElementById('emailEnabled').addEventListener('change', saveNotificationPreferences);
+});
+</script>
+</body>
+</html>

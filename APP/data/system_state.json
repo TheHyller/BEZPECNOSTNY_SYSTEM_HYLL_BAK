@@ -1,11 +1,14 @@
 {
   "system_activated": false,
-  "grace_period": true,
-  "alarm_triggered": false,
-  "lockout_until": null,
-  "failed_attempts": 0,
-  "alarm_deadline": null,
   "armed_mode": "disarmed",
   "alarm_active": false,
-  "last_updated": "2025-04-26T13:57:33.646767"
+  "alarm_triggered": false,
+  "grace_period": false,
+  "failed_attempts": 0,
+  "last_updated": "2025-04-29T11:45:08.941825",
+  "alarm_countdown_active": false,
+  "alarm_countdown_deadline": null,
+  "alarm_trigger_message": null,
+  "alarm_countdown_remaining": 0,
+  "lockout_until": null
 }

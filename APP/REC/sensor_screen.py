@@ -53,7 +53,7 @@ class SensorScreen(MDScreen):
     
     def on_leave(self):
         # Zrušenie časovača, keď opustíme obrazovku
-        if hasattr(self, '_poll_event'):
+        if hasattr(self, '_poll_event') and self._poll_event is not None:
             self._poll_event.cancel()
             self._poll_event = None
     

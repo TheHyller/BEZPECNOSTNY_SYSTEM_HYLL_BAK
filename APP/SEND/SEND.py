@@ -6,7 +6,8 @@ import time
 import os
 import socket
 import RPi.GPIO as GPIO
-from picamera import PiCamera
+from picamera2 import Picamera2
+from libcamera import controls
 import io
 import paho.mqtt.client as mqtt
 import base64
@@ -192,19 +193,22 @@ def setup_camera():
     global camera
     
     try:
-        camera = PiCamera()
-        camera.resolution = camera_resolution
-        camera.framerate = camera_framerate
+        camera = Picamera2()
+        camera_config = camera.create_still_configuration(main={"size": camera_resolution})
+        camera.configure(camera_config)
         
         # Nastavenie rotácie ak je potrebná
         if camera_rotation in [0, 90, 180, 270]:
-            camera.rotation = camera_rotation
+            camera.set_controls({"RotationDegrees": camera_rotation})
             
-        print(f"Kamera inicializovaná - rozlíšenie: {camera_resolution}, framerate: {camera_framerate}, rotácia: {camera_rotation}°")
+        print(f"Kamera inicializovaná - rozlíšenie: {camera_resolution}, rotácia: {camera_rotation}°")
         
         # Zahriatie kamery
         print(f"Zahriatie kamery ({camera_warmup_time}s)...")
+        camera.start()
         time.sleep(camera_warmup_time)
+        camera.stop()
+        
     except Exception as e:
         print(f"Chyba pri inicializácii kamery: {e}")
         camera = None
@@ -507,8 +511,18 @@ def capture_and_send_image():
         GPIO.output(LED_PIN, GPIO.HIGH)
         
         # Zachytenie snímky do in-memory súboru
+        camera.start()
+        time.sleep(0.5)  # Krátka pauza na stabilizáciu kamery
+        
+        # Vytvorenie in-memory súboru pre obrázok
         stream = io.BytesIO()
-        camera.capture(stream, format='jpeg', quality=70)
+        
+        # Zachytenie snímky do súboru
+        camera.capture_file(stream, format='jpeg')
+        camera.stop()
+        
+        # Získanie dát zo streamu
+        stream.seek(0)
         image_data = stream.getvalue()
         
         # Kódovanie obrázku do base64
@@ -564,10 +578,11 @@ def cleanup():
     except:
         pass
     
-    # Uvoľnenie kamery
+    # Uvoľnenie kamery - PiCamera2 nemá metódu close(), stačí zastaviť kameru
     if camera is not None:
         try:
-            camera.close()
+            if camera.started:
+                camera.stop()
         except:
             pass
 

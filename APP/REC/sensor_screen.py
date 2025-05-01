@@ -1,13 +1,42 @@
 # sensor_screen.py - Obrazovka senzorov
 from kivymd.uix.screen import MDScreen
-from kivy.properties import DictProperty, StringProperty, BooleanProperty
+from kivy.properties import DictProperty, StringProperty, BooleanProperty, ObjectProperty
 from kivy.clock import Clock
 from config.system_state import load_state
 from config.devices_manager import load_devices
 from kivymd.uix.list import TwoLineAvatarIconListItem, IconLeftWidget, IconRightWidget
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivy.uix.image import AsyncImage
 import notification_service as ns
+import os
+from datetime import datetime
+
+class ImageViewerDialog(MDBoxLayout):
+    """Dialog pre zobrazenie obrázka zo senzora/kamery"""
+    image_source = StringProperty("")
+    timestamp_text = StringProperty("")
+    
+    def __init__(self, image_path, timestamp=None, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = "vertical"
+        self.spacing = "12dp"
+        self.padding = "12dp"
+        self.size_hint_y = None
+        self.height = "400dp"
+        
+        self.image_source = image_path
+        
+        # Formátovanie časovej značky
+        if timestamp:
+            try:
+                dt = datetime.fromtimestamp(timestamp)
+                self.timestamp_text = f"Zachytené: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+            except Exception:
+                self.timestamp_text = "Neznámy čas zachytenia"
+        else:
+            self.timestamp_text = "Neznámy čas zachytenia"
 
 class SensorScreen(MDScreen):
     sensor_states = DictProperty({})
@@ -15,6 +44,7 @@ class SensorScreen(MDScreen):
     system_armed = BooleanProperty(False)
     armed_mode = StringProperty("disarmed")
     alarm_active = BooleanProperty(False)
+    image_dialog = ObjectProperty(None)
     
     def on_pre_enter(self):
         self.update_sensor_states()
@@ -144,7 +174,8 @@ class SensorScreen(MDScreen):
                             'triggered': triggered,
                             'alarm_state': alarm_state,
                             'would_trigger_alarm': triggered and self.armed_mode == 'armed_away',
-                            'ignored_in_home_mode': sensor_type == 'motion' and self.armed_mode == 'armed_home'
+                            'ignored_in_home_mode': sensor_type == 'motion' and self.armed_mode == 'armed_home',
+                            'image_path': self.find_latest_image(device_id)
                         }
         except Exception as e:
             print(f"Chyba pri načítaní stavov senzorov: {e}")
@@ -190,6 +221,28 @@ class SensorScreen(MDScreen):
         else:
             return 'devices'
     
+    def find_latest_image(self, device_id):
+        """Nájde najnovší obrázok pre dané zariadenie"""
+        images_dir = os.path.join(os.path.dirname(__file__), '../data/images')
+        
+        if not os.path.exists(images_dir):
+            return None
+            
+        # Hľadanie všetkých obrázkov pre dané zariadenie
+        device_images = []
+        for filename in os.listdir(images_dir):
+            if filename.startswith(f"{device_id}_") and filename.endswith('.jpg'):
+                image_path = os.path.join(images_dir, filename)
+                timestamp = os.path.getmtime(image_path)
+                device_images.append((image_path, timestamp))
+        
+        # Zoradenie podľa času (najnovšie prvé)
+        if device_images:
+            device_images.sort(key=lambda x: x[1], reverse=True)
+            return {'path': device_images[0][0], 'timestamp': device_images[0][1]}
+            
+        return None
+    
     def show_sensor_detail(self, sensor_key):
         """Zobrazí detailný dialóg o senzore"""
         if sensor_key not in self.sensor_states:
@@ -214,13 +267,18 @@ class SensorScreen(MDScreen):
             else:
                 alarm_info = "Senzor je v normálnom stave."
         
+        # Pridanie informácie o dostupnom obrázku
+        image_info = ""
+        if sensor.get('image_path'):
+            image_info = "\n\nK dispozícii je zachytený obrázok."
+        
         content = f"""
 Miestnosť: {sensor['room']}
 Zariadenie: {sensor['device_name']}
 Typ senzora: {sensor['sensor']}
 Stav: {sensor['status']}
 
-{alarm_info}
+{alarm_info}{image_info}
         """
         
         # Vytvorenie tlačidiel dialógu
@@ -244,6 +302,17 @@ Stav: {sensor['status']}
                 )
             )
         
+        # Ak má senzor obrázok, pridáme tlačidlo pre jeho zobrazenie
+        if sensor.get('image_path'):
+            buttons.append(
+                MDFlatButton(
+                    text="ZOBRAZIŤ OBRÁZOK",
+                    theme_text_color="Custom",
+                    text_color=self.theme_cls.primary_color,
+                    on_release=lambda x: self.show_image(sensor['image_path']['path'], sensor['image_path']['timestamp'])
+                )
+            )
+        
         # Vytvorenie dialógu
         self.dialog = MDDialog(
             title=f"{sensor['sensor']} - {sensor['room']}",
@@ -251,6 +320,40 @@ Stav: {sensor['status']}
             buttons=buttons
         )
         self.dialog.open()
+    
+    def show_image(self, image_path, timestamp):
+        """Zobrazí obrázok zo senzora/kamery"""
+        if self.dialog:
+            self.dialog.dismiss()
+            
+        # Vytvorenie obsahu dialógu pre obrázok
+        content = MDBoxLayout(orientation="vertical", spacing="12dp", padding="12dp")
+        
+        # Pridanie titulku s časom
+        try:
+            dt = datetime.fromtimestamp(timestamp)
+            timestamp_text = f"Zachytené: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+        except Exception:
+            timestamp_text = "Neznámy čas zachytenia"
+        
+        # Vytvorenie a zobrazenie dialógu s obrázkom
+        content = ImageViewerDialog(image_path=image_path, timestamp=timestamp)
+        
+        self.image_dialog = MDDialog(
+            title="Náhľad z kamery",
+            type="custom",
+            content_cls=content,
+            buttons=[
+                MDFlatButton(
+                    text="ZATVORIŤ",
+                    theme_text_color="Custom",
+                    text_color=self.theme_cls.primary_color,
+                    on_release=lambda x: self.image_dialog.dismiss()
+                )
+            ],
+            size_hint=(0.9, None)
+        )
+        self.image_dialog.open()
     
     def stop_alarm_and_dismiss(self):
         """Zastaví alarm a zatvorí dialóg"""

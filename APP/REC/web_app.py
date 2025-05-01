@@ -75,25 +75,33 @@ def api_sensors():
             
         sensors_data = []
         for device in devices:
-            device_id = device['device_id']
+            device_id = device['id']  # Get the device ID using the correct key
             if device_id in device_states:
-                device_name = device['device_name']
+                device_name = device['name'] if 'name' in device else device_id
                 room = device.get('room', 'Neznáma miestnosť')
                 
                 for sensor_type, status in device_states[device_id].items():
+                    # Skip non-sensor fields
+                    if sensor_type not in ['motion', 'door', 'window']:
+                        continue
+                        
                     sensor_name = get_sensor_name(sensor_type)
                     state_text = get_state_text(sensor_type, status)
                     
                     sensors_data.append({
+                        'device_id': device_id,
                         'device_name': device_name,
                         'room': room,
+                        'sensor_type': sensor_type,
                         'sensor': sensor_name,
                         'status': state_text,
+                        'raw_status': status,
                         'status_class': get_status_class(sensor_type, status)
                     })
                     
         return jsonify({"sensors": sensors_data})
     except Exception as e:
+        app.logger.error(f"Chyba pri získavaní senzorov: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/state', methods=['GET'])
@@ -604,6 +612,46 @@ def api_settings_email_test():
     except Exception as e:
         app.logger.error(f"Chyba pri odosielaní testovacieho e-mailu: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route('/api/latest_images', methods=['GET'])
+def api_latest_images():
+    """Poskytuje posledné obrázky pre jednotlivé zariadenia."""
+    try:
+        # Cesta k priečinku s obrázkami
+        images_dir = os.path.join(os.path.dirname(__file__), '../data/images')
+        
+        # Kontrola existencie priečinka
+        if not os.path.exists(images_dir):
+            return jsonify({"images": {}}), 200
+        
+        # Nájdenie najnovších obrázkov pre každé zariadenie
+        device_images = {}
+        image_files = [f for f in os.listdir(images_dir) if f.endswith('.jpg')]
+        
+        for image_file in image_files:
+            # Názov zariadenia je na začiatku súboru pred podtržníkom
+            parts = image_file.split('_')
+            if len(parts) < 2:
+                continue
+                
+            device_id = parts[0]
+            
+            # Získanie času vytvorenia súboru
+            image_path = os.path.join(images_dir, image_file)
+            timestamp = os.path.getmtime(image_path)
+            
+            # Ak zariadenie ešte nemá obrázok alebo je tento novší
+            if device_id not in device_images or timestamp > device_images[device_id]['timestamp']:
+                device_images[device_id] = {
+                    'path': image_path,
+                    'timestamp': timestamp,
+                    'filename': image_file
+                }
+        
+        return jsonify({"images": device_images})
+    except Exception as e:
+        app.logger.error(f"Chyba pri získavaní obrázkov: {e}")
+        return jsonify({"error": str(e)}), 500
 
 def get_sensor_name(sensor_type):
     names = {

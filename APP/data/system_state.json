@@ -5,7 +5,7 @@
   "alarm_triggered": false,
   "grace_period": false,
   "failed_attempts": 0,
-  "last_updated": "2025-04-29T11:45:08.941825",
+  "last_updated": "2025-05-01T17:16:49.583537",
   "alarm_countdown_active": false,
   "alarm_countdown_deadline": null,
   "alarm_trigger_message": null,

@@ -24,6 +24,16 @@
         .actions { margin-top: 24px; text-align: center; }
         .btn { padding: 10px 24px; font-size: 1em; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; margin: 0 8px; }
         .last-update { text-align: right; color: #666; font-size: 0.8em; margin-top: 16px; }
+        .sensor-image { margin-top: 10px; text-align: center; }
+        .sensor-image img { max-width: 120px; max-height: 90px; object-fit: cover; cursor: pointer; border-radius: 4px; }
+        .sensor-image-placeholder { color: #999; font-size: 0.8em; margin-top: 8px; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); }
+        .modal-content { display: flex; flex-direction: column; margin: 5% auto; padding: 20px; max-width: 80%; max-height: 80vh; }
+        .modal-image-container { flex: 1; display: flex; justify-content: center; align-items: center; }
+        .modal-image { max-width: 100%; max-height: 70vh; object-fit: contain; }
+        .modal-title { color: white; text-align: center; margin-bottom: 16px; }
+        .modal-info { background: rgba(255,255,255,0.9); padding: 12px; border-radius: 4px; margin-top: 16px; }
+        .close-button { color: white; position: absolute; right: 32px; top: 16px; font-size: 2em; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -49,7 +59,22 @@
     <div class="last-update" id="lastUpdate"></div>
 </div>
 
+<!-- Image modal -->
+<div id="imageModal" class="modal">
+    <span class="close-button" onclick="closeModal()">&times;</span>
+    <div class="modal-content">
+        <h3 class="modal-title" id="modalTitle">Detailný pohľad</h3>
+        <div class="modal-image-container">
+            <img id="modalImage" class="modal-image" src="" alt="Detail obrázku">
+        </div>
+        <div class="modal-info" id="modalInfo"></div>
+    </div>
+</div>
+
 <script>
+// Posledné známe snímky pre každé zariadenie
+let deviceImages = {};
+
 function updateSensors() {
     fetch('/api/sensors')
         .then(response => response.json())
@@ -64,18 +89,17 @@ function updateSensors() {
                     return a.room.localeCompare(b.room);
                 });
                 
-                data.sensors.forEach(sensor => {
-                    const sensorItem = document.createElement('div');
-                    sensorItem.className = `sensor-item ${sensor.status_class}`;
-                    
-                    sensorItem.innerHTML = `
-                        <div class="sensor-name">${sensor.sensor}</div>
-                        <div class="sensor-location">${sensor.room} - ${sensor.device_name}</div>
-                        <div class="sensor-status">${sensor.status}</div>
-                    `;
-                    
-                    sensorsList.appendChild(sensorItem);
-                });
+                // Získanie posledných obrázkov
+                fetch('/api/latest_images')
+                    .then(response => response.json())
+                    .then(imgData => {
+                        deviceImages = imgData.images || {};
+                        renderSensors(data.sensors);
+                    })
+                    .catch(err => {
+                        console.error('Chyba pri získavaní obrázkov:', err);
+                        renderSensors(data.sensors);
+                    });
             } else {
                 sensorsList.innerHTML = '<div class="no-sensors">Žiadne senzory neboli nájdené.</div>';
             }
@@ -87,6 +111,82 @@ function updateSensors() {
             document.getElementById('sensorsList').innerHTML = 
                 '<div class="error">Nepodarilo sa načítať informácie o senzoroch.</div>';
         });
+}
+
+function renderSensors(sensors) {
+    const sensorsList = document.getElementById('sensorsList');
+    
+    sensors.forEach(sensor => {
+        const sensorItem = document.createElement('div');
+        sensorItem.className = `sensor-item ${sensor.status_class}`;
+        
+        let imageHtml = '';
+        // Ak je dostupný obrázok pre zariadenie, zobrazíme ho
+        if (deviceImages[sensor.device_id]) {
+            imageHtml = `
+                <div class="sensor-image">
+                    <img src="/api/image?path=${encodeURIComponent(deviceImages[sensor.device_id].path)}" 
+                         alt="Snímka z kamery" 
+                         onclick="showImageModal('${encodeURIComponent(deviceImages[sensor.device_id].path)}', 
+                                                '${sensor.device_name} - ${sensor.room}', 
+                                                '${deviceImages[sensor.device_id].timestamp}')">
+                </div>
+            `;
+        }
+        
+        sensorItem.innerHTML = `
+            <div class="sensor-name">${sensor.sensor}</div>
+            <div class="sensor-location">${sensor.room} - ${sensor.device_name}</div>
+            <div class="sensor-status">${sensor.status}</div>
+            ${imageHtml}
+        `;
+        
+        sensorsList.appendChild(sensorItem);
+    });
+}
+
+// Zobrazenie modálneho okna s obrázkom
+function showImageModal(imagePath, title, timestamp) {
+    const modal = document.getElementById('imageModal');
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalInfo = document.getElementById('modalInfo');
+    
+    // Nastavenie obsahu modálu
+    modalImage.src = `/api/image?path=${imagePath}`;
+    modalTitle.innerText = title || 'Detailný pohľad';
+    
+    const time = formatDateTime(timestamp);
+    
+    modalInfo.innerHTML = `
+        <strong>Zariadenie:</strong> ${title}<br>
+        <strong>Čas zachytenia:</strong> ${time}
+    `;
+    
+    // Zobrazenie modálu
+    modal.style.display = 'block';
+    
+    // Zatvorenie modálu kliknutím mimo obrázku
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+}
+
+// Zatvorenie modálneho okna
+function closeModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+// Formátovanie dátumu a času
+function formatDateTime(timestamp) {
+    try {
+        const date = new Date(parseFloat(timestamp) * 1000);
+        return date.toLocaleDateString('sk-SK') + ' ' + date.toLocaleTimeString('sk-SK');
+    } catch (e) {
+        return 'Neznámy čas';
+    }
 }
 
 // Prvotné načítanie a potom každé 2 sekundy

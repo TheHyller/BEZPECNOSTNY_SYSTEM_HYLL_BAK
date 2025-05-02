@@ -64,14 +64,6 @@
             <div class="sensor-label">Zariadenia</div>
             <div class="sensor-value" id="deviceCount">0</div>
         </div>
-        <div class="sensor-stat">
-            <div class="sensor-label">Aktívne zariadenia</div>
-            <div class="sensor-value" id="deviceOnlineCount">0</div>
-        </div>
-        <div class="sensor-stat">
-            <div class="sensor-label">Aktivované senzory</div>
-            <div class="sensor-value" id="triggeredSensors">0</div>
-        </div>
     </div>
 
     <!-- Action buttons -->
@@ -127,8 +119,6 @@ function updateUI() {
         const msg = document.getElementById('msg');
         const countdown = document.getElementById('countdown');
         const deviceCount = document.getElementById('deviceCount');
-        const deviceOnlineCount = document.getElementById('deviceOnlineCount');
-        const triggeredSensors = document.getElementById('triggeredSensors');
         const lastUpdate = document.getElementById('lastUpdate');
         
         // Aktualizácia štatistík - tu by sme mali volať API na získanie údajov zo senzorov pre počet aktívnych
@@ -238,15 +228,10 @@ function updateUI() {
 function updateSensorStats() {
     fetch('/api/sensors').then(r=>r.json()).then(data => {
         const deviceCount = document.getElementById('deviceCount');
-        const deviceOnlineCount = document.getElementById('deviceOnlineCount');
-        const triggeredSensors = document.getElementById('triggeredSensors');
         
         // If metrics are provided directly from the API, use them
         if (data.metrics) {
             deviceCount.innerText = data.metrics.total_devices;
-            deviceOnlineCount.innerText = data.metrics.online_devices;
-            triggeredSensors.innerText = data.metrics.triggered_sensors;
-            triggeredSensors.className = data.metrics.triggered_sensors > 0 ? "sensor-value alert" : "sensor-value";
         } 
         // Fallback to manual calculation if metrics aren't provided
         else if (data.sensors) {
@@ -254,22 +239,6 @@ function updateSensorStats() {
             const uniqueDevices = new Set();
             data.sensors.forEach(s => uniqueDevices.add(s.device_id));
             deviceCount.innerText = uniqueDevices.size;
-            
-            // Online zariadenia - toto by malo byť poskytované inou API
-            fetch('/api/mqtt/status').then(r=>r.json()).then(mqtt => {
-                deviceOnlineCount.innerText = mqtt.online_device_count || 0;
-            }).catch(() => {
-                deviceOnlineCount.innerText = "?";
-            });
-            
-            // Aktivované senzory
-            let triggered = data.sensors.filter(s => 
-                s.status.includes("DETEGOVANÝ") || 
-                s.status.includes("OTVORENÉ")
-            ).length;
-            
-            triggeredSensors.innerText = triggered;
-            triggeredSensors.className = triggered > 0 ? "sensor-value alert" : "sensor-value";
         }
     }).catch(err => {
         console.error("Chyba pri načítavaní údajov senzorov:", err);

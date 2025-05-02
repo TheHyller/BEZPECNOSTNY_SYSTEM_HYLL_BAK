@@ -460,6 +460,10 @@ def motion_callback(channel):
             if current_state:
                 GPIO.output(LED_PIN, GPIO.HIGH)
                 threading.Timer(0.5, lambda: GPIO.output(LED_PIN, GPIO.LOW)).start()
+                
+                # Automaticky zachytiť a odoslať snímku pri detekcii pohybu
+                print("Pohyb detegovaný - zachytávam snímku...")
+                threading.Thread(target=capture_and_send_image).start()
 
 def door_callback(channel):
     """Callback pre dverový kontakt."""

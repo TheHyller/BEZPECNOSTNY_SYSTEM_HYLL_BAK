@@ -120,10 +120,8 @@ class DashboardScreen(MDScreen):
     status_text = StringProperty("")
     last_update = ObjectProperty(None)
     
-    # Počty zariadení a senzorov
+    # Počty zariadení
     device_count = StringProperty("0")
-    online_device_count = StringProperty("0")
-    sensors_triggered = StringProperty("0")
     
     # Dialóg pre zadanie PIN kódu
     pin_dialog = None
@@ -174,33 +172,15 @@ class DashboardScreen(MDScreen):
         # Aktualizácia štatistík zariadení
         try:
             devices = load_devices()
-            online_devices = 0
-            triggered_sensors = 0
             
             # Načítanie stavu zariadení
             device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
             if os.path.exists(device_status_path):
                 with open(device_status_path, 'r', encoding='utf-8') as f:
                     device_status = json.load(f)
-                    
-                # Počítanie zariadení online a aktivovaných senzorov
-                for device_id, device_data in device_status.items():
-                    # Kontrola, či je zariadenie online
-                    if device_data.get('status') == 'ONLINE':
-                        online_devices += 1
-                        
-                    # Počítanie aktivovaných senzorov
-                    if device_data.get('motion') == 'DETECTED':
-                        triggered_sensors += 1
-                    if device_data.get('door') == 'OPEN':
-                        triggered_sensors += 1
-                    if device_data.get('window') == 'OPEN':
-                        triggered_sensors += 1
             
             # Aktualizácia UI
             self.device_count = str(len(devices))
-            self.online_device_count = str(online_devices)
-            self.sensors_triggered = str(triggered_sensors)
             
         except Exception as e:
             print(f"Chyba pri aktualizácii štatistík zariadení: {e}")

@@ -251,37 +251,24 @@ function renderImageGallery() {
         return;
     }
     
-    // Find the latest image across all devices
-    let latestImage = null;
-    let latestTimestamp = 0;
-    let latestDeviceId = null;
-    
+    // Iterate through all devices and display their images
     for (const [deviceId, imageData] of Object.entries(deviceImages)) {
-        if (imageData.timestamp > latestTimestamp) {
-            latestTimestamp = imageData.timestamp;
-            latestImage = imageData;
-            latestDeviceId = deviceId;
-        }
-    }
-    
-    // If we found a device with a latest image
-    if (latestDeviceId) {
         // Find the sensor data for this device
-        const deviceSensors = sensorsData.filter(s => s.device_id === latestDeviceId);
-        const deviceName = deviceSensors.length > 0 ? deviceSensors[0].device_name : latestDeviceId;
+        const deviceSensors = sensorsData.filter(s => s.device_id === deviceId);
+        const deviceName = deviceSensors.length > 0 ? deviceSensors[0].device_name : deviceId;
         const roomName = deviceSensors.length > 0 ? deviceSensors[0].room : 'Neznáma miestnosť';
         
-        // Create a card for the latest image
+        // Create a card for this device's image
         const card = document.createElement('div');
         card.className = 'image-card';
         
         let imageContent = `
             <div class="image-container">
-                <img src="/api/image?path=${encodeURIComponent(latestImage.path)}" 
-                     alt="Najnovšia snímka z kamery" 
-                     onclick="showImageModal('${encodeURIComponent(latestImage.path)}', 
+                <img src="/api/image?path=${encodeURIComponent(imageData.path)}" 
+                     alt="Snímka z kamery ${deviceName}" 
+                     onclick="showImageModal('${encodeURIComponent(imageData.path)}', 
                                             '${deviceName} - ${roomName}', 
-                                            '${latestImage.timestamp}')">
+                                            '${imageData.timestamp}')">
             </div>
         `;
         
@@ -292,7 +279,7 @@ function renderImageGallery() {
         });
         
         // Formátovanie času pre obrázok
-        const time = formatDateTime(latestImage.timestamp);
+        const time = formatDateTime(imageData.timestamp);
         const timeText = `<div class="image-time">Naposledy zachytené: ${time}</div>`;
         
         card.innerHTML = `
@@ -305,14 +292,12 @@ function renderImageGallery() {
                     ${statusBadges}
                 </div>
                 <div style="margin-top:10px; text-align:center;">
-                    <button class="btn" onclick="identifySensor('${latestDeviceId}')">IDENTIFY</button>
+                    <button class="btn" onclick="identifySensor('${deviceId}')">IDENTIFY</button>
                 </div>
             </div>
         `;
         
         imageGallery.appendChild(card);
-    } else {
-        imageGallery.innerHTML = '<div class="no-sensors">Žiadne obrázky neboli nájdené.</div>';
     }
 }
 

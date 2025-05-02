@@ -88,14 +88,18 @@ def api_sensors():
         triggered_count = 0
         
         for device in devices:
-            # Ensure device has an 'id' field
-            if 'id' not in device:
-                app.logger.warning(f"Device missing 'id' field: {device}")
+            # Check for either 'id' or 'device_id' field
+            device_id = None
+            if 'id' in device:
+                device_id = device['id']
+            elif 'device_id' in device:
+                device_id = device['device_id']
+            else:
+                app.logger.warning(f"Device missing identifier field: {device}")
                 continue
                 
-            device_id = device['id']
             # Ensure 'name' field is present, fallback to device_id if not
-            device_name = device.get('name', device_id)
+            device_name = device.get('name', device.get('device_name', device_id))
             unique_devices.add(device_id)
             
             # Check if device is online

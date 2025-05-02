@@ -71,6 +71,17 @@
     </div>
 </div>
 
+<!-- Status modal for feedback messages -->
+<div id="statusModal" class="modal">
+    <div class="modal-content" style="background-color: white; width: 300px; padding: 20px; border-radius: 8px;">
+        <h3 id="statusTitle">Status</h3>
+        <p id="statusMessage"></p>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn" onclick="closeStatusModal()">OK</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // Posledné známe snímky pre každé zariadenie
 let deviceImages = {};
@@ -139,6 +150,9 @@ function renderSensors(sensors) {
             <div class="sensor-location">${sensor.room} - ${sensor.device_name}</div>
             <div class="sensor-status">${sensor.status}</div>
             ${imageHtml}
+            <div class="sensor-actions">
+                <button class="btn" onclick="identifySensor('${sensor.device_id}')">IDENTIFY</button>
+            </div>
         `;
         
         sensorsList.appendChild(sensorItem);
@@ -179,6 +193,11 @@ function closeModal() {
     document.getElementById('imageModal').style.display = 'none';
 }
 
+// Zatvorenie status modálneho okna
+function closeStatusModal() {
+    document.getElementById('statusModal').style.display = 'none';
+}
+
 // Formátovanie dátumu a času
 function formatDateTime(timestamp) {
     try {
@@ -187,6 +206,33 @@ function formatDateTime(timestamp) {
     } catch (e) {
         return 'Neznámy čas';
     }
+}
+
+// Identifikácia senzora
+function identifySensor(deviceId) {
+    fetch(`/api/identify/${deviceId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            const statusModal = document.getElementById('statusModal');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            statusTitle.innerText = 'Status';
+            statusMessage.innerText = data.message || 'Operácia bola úspešná.';
+            
+            statusModal.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Chyba pri identifikácii senzora:', error);
+            const statusModal = document.getElementById('statusModal');
+            const statusTitle = document.getElementById('statusTitle');
+            const statusMessage = document.getElementById('statusMessage');
+            
+            statusTitle.innerText = 'Chyba';
+            statusMessage.innerText = 'Nepodarilo sa identifikovať senzor.';
+            
+            statusModal.style.display = 'block';
+        });
 }
 
 // Prvotné načítanie a potom každé 2 sekundy

@@ -52,6 +52,10 @@ def on_mqtt_message(topic, payload):
 def index():
     return render_template('index.html')
 
+@app.route('/sensors')
+def sensors_page():
+    return render_template('sensors.html')
+
 @app.route('/alerts')
 def alerts_page():
     return render_template('alerts.html')
@@ -489,6 +493,33 @@ def api_mqtt_command():
             return jsonify({'success': False, 'message': 'Chyba pri odosielaní príkazu - MQTT klient nepripojený'}), 503
     except Exception as e:
         app.logger.error(f"Chyba pri odosielaní MQTT príkazu: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/identify/<device_id>', methods=['POST'])
+def api_identify_device(device_id):
+    """API endpoint for sending IDENTIFY command to a specific device"""
+    try:
+        # Verify the device_id matches a recognized pattern
+        if not device_id or not isinstance(device_id, str) or len(device_id) < 3:
+            return jsonify({'success': False, 'message': 'Neplatné ID zariadenia'}), 400
+            
+        # Send the IDENTIFY command to the device via MQTT
+        result = mqtt_client.publish_control_message(
+            device_id, 
+            "IDENTIFY",  # Command name
+            {
+                "timestamp": time.time()
+            }
+        )
+        
+        if result:
+            app.logger.info(f"Príkaz IDENTIFY odoslaný na zariadenie {device_id}")
+            return jsonify({'success': True, 'message': f'Zariadenie {device_id} by malo teraz blikať LED indikátorom'})
+        else:
+            return jsonify({'success': False, 'message': 'Nepodarilo sa odoslať príkaz - MQTT klient nie je pripojený'}), 503
+            
+    except Exception as e:
+        app.logger.error(f"Chyba pri identifikácii zariadenia: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/settings', methods=['GET'])

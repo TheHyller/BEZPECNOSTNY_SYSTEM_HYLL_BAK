@@ -334,9 +334,17 @@ def try_mqtt_connect():
         
     try:
         print(f"Pripájam sa k MQTT brokeru {mqtt_broker}:{MQTT_PORT}...")
+        print("Tip: Skontrolujte, či je služba Mosquitto MQTT broker spustená.")
         mqtt_client.connect(mqtt_broker, MQTT_PORT, keepalive=60)
+    except ConnectionRefusedError as e:
+        print(f"Broker odmietol pripojenie: {e}")
+        print("Skontrolujte, či je Mosquitto broker spustený pomocou príkazu 'services.msc' (Windows) alebo 'sudo systemctl status mosquitto' (Linux)")
+        print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
+        # Nastavenie časovača pre opätovný pokus
+        threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
     except Exception as e:
         print(f"Chyba pri pripájaní k MQTT brokeru: {e}")
+        print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
         # Nastavenie časovača pre opätovný pokus
         threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
 

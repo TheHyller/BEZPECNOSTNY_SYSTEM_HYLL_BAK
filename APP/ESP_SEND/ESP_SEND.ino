@@ -12,6 +12,7 @@ const char* deviceRoom = "Obývačka";       // Miestnosť umiestnenia
 
 // Nastavenie pinov pre senzory - upravte podľa vašej dosky
 const int MOTION_PIN = 5;  // D1 na NodeMCU
+const int LED_PIN = 2;     // D4 na NodeMCU - vstavané LED na ESP8266
 
 // MQTT konfigurácia - predvolené hodnoty, budú aktualizované automaticky
 const char* default_mqtt_server = "192.168.1.100";  // Predvolená IP adresa MQTT brokera
@@ -61,6 +62,8 @@ void setup() {
   
   // Inicializácia pinov
   pinMode(MOTION_PIN, INPUT);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH); // ESP8266 LED je aktívna v LOW
   
   // Pripojenie na WiFi
   setupWifi();
@@ -112,11 +115,25 @@ void setupWifi() {
   Serial.print("Pripájam sa k WiFi sieti: ");
   Serial.println(ssid);
   
+  // Vizuálna indikácia pripájania k WiFi pomocou LED
+  digitalWrite(LED_PIN, HIGH);
+  
   WiFi.begin(ssid, password);
   
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    digitalWrite(LED_PIN, LOW);  // LED zapnutá počas pripájania
+    delay(250);
+    digitalWrite(LED_PIN, HIGH); // LED vypnutá
+    delay(250);
     Serial.print(".");
+  }
+  
+  // Vizuálna indikácia úspešného pripojenia k WiFi - 3x zablikanie
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(LED_PIN, LOW);
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
   }
   
   Serial.println("");
@@ -129,6 +146,14 @@ void setupWifi() {
 bool discoverMQTTBroker() {
   Serial.println("Hľadám MQTT broker na sieti...");
   last_discovery_attempt = millis();
+  
+  // Vizuálna indikácia hľadania brokera - rýchle blikanie LED
+  for (int i = 0; i < 5; i++) {
+    digitalWrite(LED_PIN, LOW);
+    delay(50);
+    digitalWrite(LED_PIN, HIGH);
+    delay(50);
+  }
   
   // Príprava správy pre broadcast discovery požiadavku
   StaticJsonDocument<256> doc;
@@ -191,6 +216,15 @@ bool discoverMQTTBroker() {
         mqtt_port = discovered_port;
         broker_discovered = true;
         
+        // Úspech - zablikanie LED 2x dlhšie
+        digitalWrite(LED_PIN, LOW);
+        delay(200);
+        digitalWrite(LED_PIN, HIGH);
+        delay(200);
+        digitalWrite(LED_PIN, LOW);
+        delay(200);
+        digitalWrite(LED_PIN, HIGH);
+        
         return true;
       }
     }
@@ -199,6 +233,12 @@ bool discoverMQTTBroker() {
   }
   
   Serial.println("MQTT broker nebol nájdený v časovom limite. Použijem predvolenú konfiguráciu.");
+  
+  // Neúspech - rozsvietenie LED na dlhší čas
+  digitalWrite(LED_PIN, LOW);
+  delay(500);
+  digitalWrite(LED_PIN, HIGH);
+  
   return false;
 }
 
@@ -259,20 +299,53 @@ void reconnectMQTT() {
     Serial.print(mqtt_port);
     Serial.println("...");
     
+    // Vizuálna indikácia pokusu o pripojenie
+    digitalWrite(LED_PIN, LOW); 
+    delay(100);
+    digitalWrite(LED_PIN, HIGH);
+    delay(100);
+    
     // Vytvorenie klientského ID
     String clientId = "ESP-";
     clientId += String(random(0xffff), HEX);
     
-    // Pokus o pripojenie
+    // Pripravenie Last Will and Testament (LWT) správy
+    StaticJsonDocument<200> lwt;
+    lwt["status"] = "OFFLINE";
+    lwt["device_id"] = deviceId;
+    lwt["device_name"] = deviceId;
+    lwt["room"] = deviceRoom;
+    lwt["timestamp"] = millis();
+    
+    char lwtBuffer[200];
+    serializeJson(lwt, lwtBuffer);
+    
+    // Pokus o pripojenie s LWT
     bool connected = false;
+    String statusTopic = String(mqtt_status_topic) + "/" + deviceId;
+    
     if (mqtt_username[0] != '\0') {
-      connected = mqttClient.connect(clientId.c_str(), mqtt_username, mqtt_password);
+      connected = mqttClient.connect(
+        clientId.c_str(),
+        mqtt_username,
+        mqtt_password,
+        statusTopic.c_str(),  // LWT topic
+        0,                    // QoS
+        true,                 // retain
+        lwtBuffer             // LWT message
+      );
     } else {
-      connected = mqttClient.connect(clientId.c_str());
+      connected = mqttClient.connect(
+        clientId.c_str(),
+        statusTopic.c_str(),  // LWT topic
+        0,                    // QoS
+        true,                 // retain
+        lwtBuffer             // LWT message
+      );
     }
     
     if (connected) {
-      Serial.println("pripojené");
+      Serial.println("MQTT pripojené!");
       
       // Prihlásenie sa na tému pre príkazy
       String controlTopic = String(mqtt_control_topic) + "/" + deviceId;
@@ -285,67 +358,71 @@ void reconnectMQTT() {
       
       // Aktualizácia príznaku pripojenia
       previouslyConnected = true;
+      
+      // Vizuálna indikácia úspešného pripojenia - 3x zablikanie
+      for (int i = 0; i < 3; i++) {
+        digitalWrite(LED_PIN, LOW);
+        delay(100);
+        digitalWrite(LED_PIN, HIGH);
+        delay(100);
+      }
     } else {
       Serial.print("zlyhalo, rc=");
       Serial.print(mqttClient.state());
-      Serial.println(" skúsim znova o 5 sekúnd");
+      
+      // Poskytnutie užívateľsky prívetivej správy o chybe
+      switch (mqttClient.state()) {
+        case -4: 
+          Serial.println(" - Timeout pri pripájaní");
+          break;
+        case -3: 
+          Serial.println(" - Server nedostupný");
+          break;
+        case -2: 
+          Serial.println(" - Chyba pri pripájaní");
+          break;
+        case -1: 
+          Serial.println(" - Server odmietol pripojenie");
+          break;
+        case 1: 
+          Serial.println(" - Chyba protokolu");
+          break;
+        case 2: 
+          Serial.println(" - Identifikátor odmietnutý");
+          break;
+        case 3: 
+          Serial.println(" - Server nedostupný");
+          break;
+        case 4: 
+          Serial.println(" - Chybné používateľské meno/heslo");
+          break;
+        case 5: 
+          Serial.println(" - Neautorizované pripojenie");
+          break;
+        default: 
+          Serial.println(" - Neznáma chyba");
+      }
+      
+      Serial.println("Skontrolujte, či je Mosquitto broker spustený a dostupný.");
+      Serial.println("Ďalší pokus o 5 sekúnd...");
+      
+      // Vizuálna indikácia zlyhania - dlhé bliknutie
+      digitalWrite(LED_PIN, LOW);
+      delay(500);
+      digitalWrite(LED_PIN, HIGH);
       
       retry++;
       delay(5000);
     }
   }
-}
-
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Prijatá správa na téme: ");
-  Serial.print(topic);
-  Serial.print(", dĺžka: ");
-  Serial.println(length);
   
-  // Vytvorenie bufferu pre správu
-  char message[length + 1];
-  for (unsigned int i = 0; i < length; i++) {
-    message[i] = (char)payload[i];
-  }
-  message[length] = '\0';
-  
-  Serial.print("Správa: ");
-  Serial.println(message);
-  
-  // Parsovanie JSON správy
-  StaticJsonDocument<256> doc;
-  DeserializationError error = deserializeJson(doc, message);
-  
-  if (error) {
-    Serial.print("deserializeJson() zlyhalo: ");
-    Serial.println(error.c_str());
-    return;
-  }
-  
-  // Spracovanie príkazu
-  const char* command = doc["command"];
-  
-  if (strcmp(command, "RESET") == 0) {
-    Serial.println("Príkaz na resetovanie zariadenia");
-    ESP.restart();
-  }
-  else if (strcmp(command, "STATUS") == 0) {
-    Serial.println("Príkaz na odoslanie aktuálneho stavu");
-    sendSensorData(true);
-    sendDeviceStatus();
-  }
-  else if (strcmp(command, "DISCOVER") == 0) {
-    Serial.println("Príkaz na vyhľadanie MQTT brokera");
-    discoverMQTTBroker();
-    // Ak sa broker zmenil, odpojíme sa a znova pripojíme
-    if (broker_discovered) {
-      mqttClient.disconnect();
-      mqttClient.setServer(mqtt_server, mqtt_port);
-      reconnectMQTT();
-    }
+  if (!mqttClient.connected()) {
+    Serial.println("Nepodarilo sa pripojiť k MQTT brokeru po viacerých pokusoch.");
+    Serial.println("Skúsim znova neskôr.");
   }
 }
 
+// Funkcia pre čítanie senzorov
 void readSensors() {
   // Čítanie pohybového senzora
   int motionValue = digitalRead(MOTION_PIN);
@@ -372,6 +449,7 @@ void readSensors() {
   }
 }
 
+// Funkcia pre odosielanie údajov zo senzorov
 void sendSensorData(bool forced) {
   // Kontrola pripojenia
   if (!mqttClient.connected()) {
@@ -404,6 +482,7 @@ void sendSensorData(bool forced) {
   }
 }
 
+// Funkcia pre odosielanie stavu zariadenia
 void sendDeviceStatus() {
   // Pravidelné odosielanie stavu zariadenia
   if (millis() - lastStatusUpdate > statusUpdateInterval || !previouslyConnected) {
@@ -444,6 +523,7 @@ void sendDeviceStatus() {
   }
 }
 
+// Funkcia pre odosielanie informácie o pripojení
 void sendConnectMessage() {
   // Kontrola pripojenia
   if (!mqttClient.connected()) {
@@ -468,4 +548,122 @@ void sendConnectMessage() {
   // Odoslanie na MQTT tému
   String topic = String(mqtt_status_topic) + "/" + deviceId;
   mqttClient.publish(topic.c_str(), jsonBuffer, n);
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Prijatá správa na téme: ");
+  Serial.print(topic);
+  Serial.print(", dĺžka: ");
+  Serial.println(length);
+  
+  // Blikneme LED na oznámenie prijatia novej správy
+  digitalWrite(LED_PIN, LOW);
+  delay(50);
+  digitalWrite(LED_PIN, HIGH);
+  
+  // Vytvorenie bufferu pre správu
+  char message[length + 1];
+  for (unsigned int i = 0; i < length; i++) {
+    message[i] = (char)payload[i];
+  }
+  message[length] = '\0';
+  
+  Serial.print("Správa: ");
+  Serial.println(message);
+  
+  // Parsovanie JSON správy
+  StaticJsonDocument<256> doc;
+  DeserializationError error = deserializeJson(doc, message);
+  
+  if (error) {
+    Serial.print("deserializeJson() zlyhalo: ");
+    Serial.println(error.c_str());
+    
+    // Indikácia chyby - tri rýchle bliknutia
+    for (int i = 0; i < 3; i++) {
+      digitalWrite(LED_PIN, LOW);
+      delay(50);
+      digitalWrite(LED_PIN, HIGH);
+      delay(50);
+    }
+    
+    return;
+  }
+  
+  // Spracovanie príkazu
+  if (!doc.containsKey("command")) {
+    Serial.println("Správa neobsahuje príkaz");
+    return;
+  }
+  
+  const char* command = doc["command"];
+  
+  if (strcmp(command, "RESET") == 0) {
+    Serial.println("Príkaz na resetovanie zariadenia");
+    
+    // Vizuálna indikácia reštartu - séria bliknutí
+    for (int i = 0; i < 10; i++) {
+      digitalWrite(LED_PIN, LOW);
+      delay(100);
+      digitalWrite(LED_PIN, HIGH);
+      delay(100);
+    }
+    
+    ESP.restart();
+  }
+  else if (strcmp(command, "STATUS") == 0) {
+    Serial.println("Príkaz na odoslanie aktuálneho stavu");
+    
+    // Krátke bliknutie pre potvrdenie
+    digitalWrite(LED_PIN, LOW);
+    delay(200);
+    digitalWrite(LED_PIN, HIGH);
+    
+    sendSensorData(true);
+    sendDeviceStatus();
+  }
+  else if (strcmp(command, "DISCOVER") == 0) {
+    Serial.println("Príkaz na vyhľadanie MQTT brokera");
+    
+    // Série krátkych bliknutí pre indikáciu discovery
+    for (int i = 0; i < 3; i++) {
+      digitalWrite(LED_PIN, LOW);
+      delay(50);
+      digitalWrite(LED_PIN, HIGH);
+      delay(50);
+    }
+    
+    discoverMQTTBroker();
+    
+    // Ak sa broker zmenil, odpojíme sa a znova pripojíme
+    if (broker_discovered) {
+      mqttClient.disconnect();
+      mqttClient.setServer(mqtt_server, mqtt_port);
+      reconnectMQTT();
+    }
+  }
+  else if (strcmp(command, "IDENTIFY") == 0) {
+    // Nový príkaz na identifikáciu zariadenia - bliká LED pre ľahkú lokalizáciu zariadenia
+    Serial.println("Príkaz na identifikáciu zariadenia");
+    
+    // Séria dlhých bliknutí pre jasnú identifikáciu
+    for (int i = 0; i < 10; i++) {
+      digitalWrite(LED_PIN, LOW);
+      delay(300);
+      digitalWrite(LED_PIN, HIGH);
+      delay(300);
+    }
+  }
+  else {
+    Serial.print("Neznámy príkaz: ");
+    Serial.println(command);
+    
+    // Indikácia neznámeho príkazu - dve dlhé bliknutia
+    for (int i = 0; i < 2; i++) {
+      digitalWrite(LED_PIN, LOW);
+      delay(500);
+      digitalWrite(LED_PIN, HIGH);
+      delay(500);
+    }
+  }
 }

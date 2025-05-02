@@ -134,39 +134,69 @@ def find_mqtt_broker():
         print(f"Odosielam broadcast discovery požiadavku na {broadcast_address}:{MQTT_DISCOVERY_PORT}")
         sock.sendto(discovery_message, (broadcast_address, MQTT_DISCOVERY_PORT))
         
-        # Binding na discovery port pre príjem odpovede
-        sock.bind(("", MQTT_DISCOVERY_PORT))
-        print(f"Čakám na MQTT discovery odpoveď ({MQTT_DISCOVERY_TIMEOUT}s)...")
+        # Nastavenie timeoutu pre čakanie na odpoveď - 10 sekúnd
+        start_time = time.time()
+        discovery_timeout = 10
         
-        # Čakanie na odpoveď
-        data, addr = sock.recvfrom(1024)
-        print(f"Prijatá odpoveď od {addr}")
-        
-        # Parsovanie JSON správy
-        message = json.loads(data.decode("utf-8"))
-        
-        if message.get("type") == "mqtt_discovery" or message.get("type") == "mqtt_discovery_response":
-            discovered_broker = message.get("broker_ip")
-            discovered_port = message.get("broker_port", MQTT_PORT)
+        # Čakanie na odpoveď so slučkou, ktorá skúša viackrát počas timeoutu
+        while time.time() - start_time < discovery_timeout:
+            try:
+                # Skúsime prijať odpoveď
+                data, addr = sock.recvfrom(1024)
+                print(f"Prijatá odpoveď od {addr}")
+                
+                # Parsovanie JSON správy
+                message = json.loads(data.decode("utf-8"))
+                
+                # Kontrola či ide o správny typ správy
+                if message.get("type") == "mqtt_discovery" or message.get("type") == "mqtt_discovery_response":
+                    discovered_broker = message.get("broker_ip")
+                    discovered_port = message.get("broker_port", MQTT_PORT)
+                    
+                    if discovered_broker:
+                        print(f"Nájdený MQTT broker: {discovered_broker}:{discovered_port}")
+                        
+                        # Aktualizácia globálnych premenných
+                        mqtt_broker = discovered_broker
+                        MQTT_PORT = discovered_port
+                        
+                        # Blikanie LED pre vizuálnu indikáciu úspešného objavenia
+                        for _ in range(3):
+                            GPIO.output(LED_PIN, GPIO.HIGH)
+                            time.sleep(0.1)
+                            GPIO.output(LED_PIN, GPIO.LOW)
+                            time.sleep(0.1)
+                            
+                        return True
+            except socket.timeout:
+                # Timeout pri čakaní na dáta
+                continue
+            except json.JSONDecodeError as e:
+                print(f"Prijatá neplatná JSON odpoveď: {e}")
+                continue
+            except Exception as e:
+                print(f"Chyba pri spracovaní odpovede: {e}")
+                continue
+                
+            # Krátka pauza pred ďalším pokusom
+            time.sleep(0.1)
             
-            print(f"Nájdený MQTT broker: {discovered_broker}:{discovered_port}")
-            
-            # Aktualizácia globálnych premenných
-            mqtt_broker = discovered_broker
-            MQTT_PORT = discovered_port
-            
-            return True
-            
-    except socket.timeout:
-        print(f"Vypršal časový limit ({MQTT_DISCOVERY_TIMEOUT}s) pre hľadanie MQTT brokera")
+    except socket.error as e:
+        print(f"Socket chyba pri vyhľadávaní MQTT brokera: {e}")
     except Exception as e:
-        print(f"Chyba pri hľadaní MQTT brokera: {e}")
+        print(f"Všeobecná chyba pri hľadaní MQTT brokera: {e}")
     finally:
         sock.close()
         
     # Ak sa nepodarilo nájsť broker, použijeme predvolenú hodnotu
     print(f"Použijem predvolenú adresu MQTT brokera: {DEFAULT_MQTT_BROKER}")
     mqtt_broker = DEFAULT_MQTT_BROKER
+    
+    # Indikácia zlyhaného vyhľadávania pomocou LED
+    GPIO.output(LED_PIN, GPIO.HIGH)
+    time.sleep(0.5)
+    GPIO.output(LED_PIN, GPIO.LOW)
+    
     return False
 
 def setup_gpio():

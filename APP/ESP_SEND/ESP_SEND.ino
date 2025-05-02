@@ -164,20 +164,29 @@ bool discoverMQTTBroker() {
   char jsonBuffer[256];
   size_t n = serializeJson(doc, jsonBuffer);
   
-  // Odoslanie broadcast paketu
+  // Odoslanie broadcast paketu - skúsime poslať niekoľkokrát pre lepšiu spoľahlivosť
   IPAddress broadcastIP(255, 255, 255, 255);
-  udp.beginPacket(broadcastIP, discovery_port);
-  udp.write((uint8_t*)jsonBuffer, n);
-  udp.endPacket();
   
-  Serial.print("Odoslaná broadcast požiadavka na port ");
-  Serial.println(discovery_port);
+  for (int attempt = 0; attempt < 3; attempt++) {
+    udp.beginPacket(broadcastIP, discovery_port);
+    udp.write((uint8_t*)jsonBuffer, n);
+    udp.endPacket();
+    
+    Serial.print("Odoslaná broadcast požiadavka na port ");
+    Serial.print(discovery_port);
+    Serial.print(" (pokus ");
+    Serial.print(attempt + 1);
+    Serial.println("/3)");
+    
+    delay(100); // Krátka pauza medzi pokusmi
+  }
   
   // Počúvame na UDP porte pre discovery odpoveď
   unsigned long start_time = millis();
+  const unsigned long response_timeout = 10000;  // 10 sekúnd timeout
   
   // Nastavenie timeoutu pre čakanie na odpoveď
-  while (millis() - start_time < 10000) {  // 10 sekúnd timeout
+  while (millis() - start_time < response_timeout) {
     int packetSize = udp.parsePacket();
     if (packetSize) {
       Serial.print("Prijatý UDP paket, veľkosť: ");
@@ -206,30 +215,32 @@ bool discoverMQTTBroker() {
         const char* discovered_broker = responseDoc["broker_ip"];
         int discovered_port = responseDoc["broker_port"];
         
-        Serial.print("Nájdený MQTT broker na IP: ");
-        Serial.print(discovered_broker);
-        Serial.print(" port: ");
-        Serial.println(discovered_port);
-        
-        // Aktualizácia konfigurácie
-        strncpy(mqtt_server, discovered_broker, sizeof(mqtt_server));
-        mqtt_port = discovered_port;
-        broker_discovered = true;
-        
-        // Úspech - zablikanie LED 2x dlhšie
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-        digitalWrite(LED_PIN, HIGH);
-        delay(200);
-        digitalWrite(LED_PIN, LOW);
-        delay(200);
-        digitalWrite(LED_PIN, HIGH);
-        
-        return true;
+        if (discovered_broker != NULL && strlen(discovered_broker) > 0) {
+          Serial.print("Nájdený MQTT broker na IP: ");
+          Serial.print(discovered_broker);
+          Serial.print(" port: ");
+          Serial.println(discovered_port);
+          
+          // Aktualizácia konfigurácie
+          strncpy(mqtt_server, discovered_broker, sizeof(mqtt_server));
+          mqtt_port = discovered_port;
+          broker_discovered = true;
+          
+          // Úspech - zablikanie LED 2x dlhšie
+          digitalWrite(LED_PIN, LOW);
+          delay(200);
+          digitalWrite(LED_PIN, HIGH);
+          delay(200);
+          digitalWrite(LED_PIN, LOW);
+          delay(200);
+          digitalWrite(LED_PIN, HIGH);
+          
+          return true;
+        }
       }
     }
     
-    delay(100); // Krátka pauza pre zníženie zaťaženia CPU
+    delay(50); // Krátka pauza pre zníženie zaťaženia CPU
   }
   
   Serial.println("MQTT broker nebol nájdený v časovom limite. Použijem predvolenú konfiguráciu.");

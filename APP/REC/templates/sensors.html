@@ -245,45 +245,45 @@ function renderImageGallery() {
     const imageGallery = document.getElementById('imageGallery');
     imageGallery.innerHTML = '';
     
-    // Získanie unikátnych zariadení
-    const uniqueDevices = new Set();
-    sensorsData.forEach(sensor => uniqueDevices.add(sensor.device_id));
-    
-    if (uniqueDevices.size === 0) {
-        imageGallery.innerHTML = '<div class="no-sensors">Žiadne kamery neboli nájdené.</div>';
+    // Check if we have any images
+    if (Object.keys(deviceImages).length === 0) {
+        imageGallery.innerHTML = '<div class="no-sensors">Žiadne obrázky neboli nájdené.</div>';
         return;
     }
     
-    // Pre každé zariadenie vytvor kartu s obrázkom
-    uniqueDevices.forEach(deviceId => {
-        const deviceSensors = sensorsData.filter(s => s.device_id === deviceId);
-        if (deviceSensors.length === 0) return;
+    // Find the latest image across all devices
+    let latestImage = null;
+    let latestTimestamp = 0;
+    let latestDeviceId = null;
+    
+    for (const [deviceId, imageData] of Object.entries(deviceImages)) {
+        if (imageData.timestamp > latestTimestamp) {
+            latestTimestamp = imageData.timestamp;
+            latestImage = imageData;
+            latestDeviceId = deviceId;
+        }
+    }
+    
+    // If we found a device with a latest image
+    if (latestDeviceId) {
+        // Find the sensor data for this device
+        const deviceSensors = sensorsData.filter(s => s.device_id === latestDeviceId);
+        const deviceName = deviceSensors.length > 0 ? deviceSensors[0].device_name : latestDeviceId;
+        const roomName = deviceSensors.length > 0 ? deviceSensors[0].room : 'Neznáma miestnosť';
         
-        const deviceName = deviceSensors[0].device_name;
-        const roomName = deviceSensors[0].room;
-        
+        // Create a card for the latest image
         const card = document.createElement('div');
         card.className = 'image-card';
         
-        // Obsah pre obrázok
-        let imageContent = '';
-        if (deviceImages[deviceId]) {
-            imageContent = `
-                <div class="image-container">
-                    <img src="/api/image?path=${encodeURIComponent(deviceImages[deviceId].path)}" 
-                         alt="Snímka z kamery" 
-                         onclick="showImageModal('${encodeURIComponent(deviceImages[deviceId].path)}', 
-                                                '${deviceName} - ${roomName}', 
-                                                '${deviceImages[deviceId].timestamp}')">
-                </div>
-            `;
-        } else {
-            imageContent = `
-                <div class="image-container">
-                    <div class="no-image">Žiadna dostupná snímka</div>
-                </div>
-            `;
-        }
+        let imageContent = `
+            <div class="image-container">
+                <img src="/api/image?path=${encodeURIComponent(latestImage.path)}" 
+                     alt="Najnovšia snímka z kamery" 
+                     onclick="showImageModal('${encodeURIComponent(latestImage.path)}', 
+                                            '${deviceName} - ${roomName}', 
+                                            '${latestImage.timestamp}')">
+            </div>
+        `;
         
         // Stavové odznaky
         let statusBadges = '';
@@ -292,11 +292,8 @@ function renderImageGallery() {
         });
         
         // Formátovanie času pre obrázok
-        let timeText = '';
-        if (deviceImages[deviceId]) {
-            const time = formatDateTime(deviceImages[deviceId].timestamp);
-            timeText = `<div class="image-time">Zachytené: ${time}</div>`;
-        }
+        const time = formatDateTime(latestImage.timestamp);
+        const timeText = `<div class="image-time">Naposledy zachytené: ${time}</div>`;
         
         card.innerHTML = `
             ${imageContent}
@@ -308,13 +305,15 @@ function renderImageGallery() {
                     ${statusBadges}
                 </div>
                 <div style="margin-top:10px; text-align:center;">
-                    <button class="btn" onclick="identifySensor('${deviceId}')">IDENTIFY</button>
+                    <button class="btn" onclick="identifySensor('${latestDeviceId}')">IDENTIFY</button>
                 </div>
             </div>
         `;
         
         imageGallery.appendChild(card);
-    });
+    } else {
+        imageGallery.innerHTML = '<div class="no-sensors">Žiadne obrázky neboli nájdené.</div>';
+    }
 }
 
 function renderSensors() {

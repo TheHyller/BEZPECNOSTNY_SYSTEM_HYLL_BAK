@@ -70,10 +70,15 @@ def settings_page():
 
 @app.route('/api/sensors', methods=['GET'])
 def api_sensors():
-    devices = load_devices()
-    device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
-    
     try:
+        devices = load_devices()
+        device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
+        
+        if not os.path.exists(device_status_path):
+            app.logger.warning("Device status file not found")
+            return jsonify({"sensors": [], "metrics": {"total_devices": 0, "online_devices": 0, "triggered_sensors": 0}}), 200
+        
+        # Load device states
         with open(device_status_path, 'r', encoding='utf-8') as f:
             device_states = json.load(f)
             
@@ -83,8 +88,14 @@ def api_sensors():
         triggered_count = 0
         
         for device in devices:
+            # Ensure device has an 'id' field
+            if 'id' not in device:
+                app.logger.warning(f"Device missing 'id' field: {device}")
+                continue
+                
             device_id = device['id']
-            device_name = device['name'] if 'name' in device else device_id
+            # Ensure 'name' field is present, fallback to device_id if not
+            device_name = device.get('name', device_id)
             unique_devices.add(device_id)
             
             # Check if device is online
@@ -129,8 +140,13 @@ def api_sensors():
             "sensors": sensors_data,
             "metrics": metrics
         })
+    except KeyError as e:
+        app.logger.error(f"KeyError pri získavaní senzorov: {e}")
+        return jsonify({"error": f"Key error: {str(e)}"}), 500
     except Exception as e:
         app.logger.error(f"Chyba pri získavaní senzorov: {e}")
+        import traceback
+        app.logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/state', methods=['GET'])

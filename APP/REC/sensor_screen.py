@@ -124,6 +124,21 @@ class SensorScreen(MDScreen):
         # Update the current view content
         self.update_view()
     
+    def on_segment_active(self, segmented_control, segment_item):
+        """Handle segmented control item activation safely"""
+        try:
+            # Find which item was clicked based on text
+            if getattr(segment_item, 'text', '') == 'Zoznam':
+                self.switch_view('list')
+            elif getattr(segment_item, 'text', '') == 'Obrázky':
+                self.switch_view('gallery')
+            else:
+                print(f"Unknown segment item: {segment_item}")
+        except Exception as e:
+            print(f"Error in segmented control handler: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def on_leave(self):
         # Zrušenie časovača, keď opustíme obrazovku
         if hasattr(self, '_poll_event') and self._poll_event is not None:

@@ -21,6 +21,7 @@
                 id: view_mode
                 segment_color: app.theme_cls.primary_color
                 on_active: root.switch_view("list") if self.current_active_segment_index == 0 else root.switch_view("gallery")
+                md_bg_color: app.theme_cls.bg_darkest
                 
                 MDSegmentedControlItem:
                     text: "Zoznam"

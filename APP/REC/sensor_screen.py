@@ -103,8 +103,26 @@ class SensorScreen(MDScreen):
         if not hasattr(self, '_poll_event'):
             self._poll_event = Clock.schedule_interval(lambda dt: self.update_sensor_states(), 2)
         
-        # Initialize view mode
-        self.switch_view("list")
+        # Initialize view mode - make sure view_mode is set and show the correct view
+        Clock.schedule_once(lambda dt: self.initialize_view(), 0.1)
+    
+    def initialize_view(self):
+        """Initialize the view mode and segmented control"""
+        # Ensure the view manager is showing the current view
+        if hasattr(self.ids, 'view_manager'):
+            self.ids.view_manager.current = self.current_view
+            
+        # Set the segmented control to match the current view
+        if hasattr(self.ids, 'view_mode'):
+            # Set the initial active segment based on current_view
+            index = 0 if self.current_view == "list" else 1
+            try:
+                self.ids.view_mode.set_current(index)
+            except:
+                print("Could not set initial segment in MDSegmentedControl")
+        
+        # Update the current view content
+        self.update_view()
     
     def on_leave(self):
         # Zrušenie časovača, keď opustíme obrazovku
@@ -119,11 +137,21 @@ class SensorScreen(MDScreen):
     
     def switch_view(self, view_mode):
         """Prepne medzi zobrazeniami zoznamu a galérie"""
-        self.current_view = view_mode
-        self.ids.view_manager.current = view_mode
-        
-        # Update the view content
-        self.update_view()
+        if view_mode not in ["list", "gallery"]:
+            print(f"Invalid view mode: {view_mode}")
+            return
+            
+        try:
+            self.current_view = view_mode
+            if hasattr(self.ids, 'view_manager'):
+                self.ids.view_manager.current = view_mode
+            
+            # Update the view content
+            self.update_view()
+        except Exception as e:
+            print(f"Error in switch_view: {e}")
+            import traceback
+            traceback.print_exc()
     
     def update_view(self):
         """Aktualizuje obsah aktuálneho zobrazenia"""

@@ -9,9 +9,44 @@ from kivymd.uix.dialog import MDDialog
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivy.uix.image import AsyncImage
+from kivymd.uix.card import MDCard
 import notification_service as ns
 import os
 from datetime import datetime
+from collections import defaultdict
+from kivymd.uix.fitimage import FitImage
+
+class ImageCard(MDCard):
+    """Karta s obrázkom zo senzora/kamery pre galériu"""
+    image_source = StringProperty("")
+    device_name = StringProperty("")
+    room_name = StringProperty("")
+    timestamp_text = StringProperty("")
+    device_id = StringProperty("")
+    timestamp = ObjectProperty(None)
+    
+    def __init__(self, image_path, device_name, room_name, device_id, timestamp=None, callback=None, **kwargs):
+        super().__init__(**kwargs)
+        self.image_source = image_path
+        self.device_name = device_name
+        self.room_name = room_name
+        self.device_id = device_id
+        self.timestamp = timestamp
+        self.callback = callback
+        
+        # Formátovanie časovej značky
+        if timestamp:
+            try:
+                dt = datetime.fromtimestamp(timestamp)
+                self.timestamp_text = f"Zachytené: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
+            except Exception:
+                self.timestamp_text = "Neznámy čas zachytenia"
+        else:
+            self.timestamp_text = "Neznámy čas zachytenia"
+    
+    def on_image_click(self):
+        if self.callback:
+            self.callback(self.image_source, self.timestamp)
 
 class ImageViewerDialog(MDBoxLayout):
     """Dialog pre zobrazenie obrázka zo senzora/kamery"""
@@ -61,11 +96,15 @@ class SensorScreen(MDScreen):
     armed_mode = StringProperty("disarmed")
     alarm_active = BooleanProperty(False)
     image_dialog = ObjectProperty(None)
+    current_view = StringProperty("list")
     
     def on_pre_enter(self):
         self.update_sensor_states()
         if not hasattr(self, '_poll_event'):
             self._poll_event = Clock.schedule_interval(lambda dt: self.update_sensor_states(), 2)
+        
+        # Initialize view mode
+        self.switch_view("list")
     
     def on_leave(self):
         # Zrušenie časovača, keď opustíme obrazovku
@@ -78,7 +117,27 @@ class SensorScreen(MDScreen):
         if self.manager:
             self.manager.current = 'dashboard'
     
+    def switch_view(self, view_mode):
+        """Prepne medzi zobrazeniami zoznamu a galérie"""
+        self.current_view = view_mode
+        self.ids.view_manager.current = view_mode
+        
+        # Update the view content
+        self.update_view()
+    
+    def update_view(self):
+        """Aktualizuje obsah aktuálneho zobrazenia"""
+        if self.current_view == "list":
+            self.update_sensor_list()
+        elif self.current_view == "gallery":
+            self.update_image_gallery()
+    
     def on_sensor_states(self, instance, value):
+        """Aktualizácia obsahu pri zmene stavu senzorov"""
+        self.update_view()
+    
+    def update_sensor_list(self):
+        """Aktualizuje zoznam senzorov"""
         # Vyčistenie zoznamu a naplnenie novými údajmi
         self.ids.sensors_list.clear_widgets()
         
@@ -122,6 +181,48 @@ class SensorScreen(MDScreen):
                 
             item.add_widget(icon)
             self.ids.sensors_list.add_widget(item)
+
+    def update_image_gallery(self):
+        """Aktualizuje galériu obrázkov zo senzorov"""
+        # Vyčistenie mriežky
+        self.ids.image_grid.clear_widgets()
+        
+        # Zhromaždenie všetkých jedinečných zariadení
+        device_images = {}
+        device_info = {}
+        
+        for key, sensor in self.sensor_states.items():
+            device_id = sensor['device_id']
+            if device_id not in device_info:
+                device_info[device_id] = {
+                    'name': sensor['device_name'],
+                    'room': sensor['room']
+                }
+            
+            # Ak má senzor obrázok, pridaj do zoznamu
+            if sensor.get('image_path'):
+                img_path = sensor['image_path']
+                if device_id not in device_images or (device_id in device_images and 
+                                                    img_path['timestamp'] > device_images[device_id]['timestamp']):
+                    device_images[device_id] = img_path
+        
+        # Vytvorenie karty s obrázkom pre každé zariadenie
+        for device_id, img_info in device_images.items():
+            device = device_info.get(device_id, {'name': device_id, 'room': 'Neznáma miestnosť'})
+            
+            card = ImageCard(
+                image_path=img_info['path'],
+                device_name=device['name'],
+                room_name=device['room'],
+                device_id=device_id,
+                timestamp=img_info['timestamp'],
+                callback=lambda path, timestamp: self.show_image(path, timestamp)
+            )
+            
+            self.ids.image_grid.add_widget(card)
+        
+        # Nastavenie výšky mriežky
+        self.ids.image_grid.height = len(device_images) * 340 / 2 + 20  # Približne polovica kariet v riadku
     
     def update_sensor_states(self):
         from datetime import datetime
@@ -339,20 +440,10 @@ Stav: {sensor['status']}
     
     def show_image(self, image_path, timestamp):
         """Zobrazí obrázok zo senzora/kamery"""
-        if self.dialog:
+        if hasattr(self, 'dialog') and self.dialog:
             self.dialog.dismiss()
             
         # Vytvorenie obsahu dialógu pre obrázok
-        content = MDBoxLayout(orientation="vertical", spacing="12dp", padding="12dp")
-        
-        # Pridanie titulku s časom
-        try:
-            dt = datetime.fromtimestamp(timestamp)
-            timestamp_text = f"Zachytené: {dt.strftime('%Y-%m-%d %H:%M:%S')}"
-        except Exception:
-            timestamp_text = "Neznámy čas zachytenia"
-        
-        # Vytvorenie a zobrazenie dialógu s obrázkom
         content = ImageViewerDialog(image_path=image_path, timestamp=timestamp)
         
         # Vytvorenie referencie na content objekt pre použitie v tlačidlách

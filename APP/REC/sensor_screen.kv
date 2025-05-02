@@ -9,25 +9,70 @@
             elevation: 4
             pos_hint: {"top": 1}
             left_action_items: [["arrow-left", lambda x: root.go_back()]]
-            
-        BoxLayout:
-            orientation: 'vertical'
+        
+        # View toggle buttons
+        MDBoxLayout:
+            adaptive_height: True
             padding: "8dp"
+            spacing: "8dp"
+            pos_hint: {"center_x": .5}
             
-            ScrollView:
-                do_scroll_x: False
+            MDSegmentedControl:
+                id: view_mode
+                segment_color: app.theme_cls.primary_color
                 
-                MDList:
-                    id: sensors_list
-                    padding: "8dp"
+                MDSegmentedControlItem:
+                    text: "Zoznam"
+                    on_release: root.switch_view("list")
+                
+                MDSegmentedControlItem:
+                    text: "Obrázky"
+                    on_release: root.switch_view("gallery")
+        
+        # Screen manager for different views
+        ScreenManager:
+            id: view_manager
             
-            MDLabel:
-                text: root.last_update
-                font_style: "Caption"
-                size_hint_y: None
-                height: self.texture_size[1]
-                halign: "right"
-                padding: "8dp", "4dp"
+            # List View
+            Screen:
+                name: "list"
+                
+                BoxLayout:
+                    orientation: 'vertical'
+                    padding: "8dp"
+                    
+                    ScrollView:
+                        do_scroll_x: False
+                        
+                        MDList:
+                            id: sensors_list
+                            padding: "8dp"
+            
+            # Gallery View
+            Screen:
+                name: "gallery"
+                
+                BoxLayout:
+                    orientation: 'vertical'
+                    padding: "8dp"
+                    
+                    ScrollView:
+                        do_scroll_x: False
+                        
+                        MDGridLayout:
+                            id: image_grid
+                            cols: 2
+                            adaptive_height: True
+                            padding: "8dp"
+                            spacing: "16dp"
+        
+        MDLabel:
+            text: root.last_update
+            font_style: "Caption"
+            size_hint_y: None
+            height: self.texture_size[1]
+            halign: "right"
+            padding: "8dp", "4dp"
 
 <ImageViewerDialog>:
     orientation: 'vertical'
@@ -61,3 +106,55 @@
         disabled: not root.is_fullscreen
         on_release: root.toggle_fullscreen()
         md_bg_color: 0.1, 0.1, 0.1, 0.7  # Tmavé polopriehľadné pozadie
+
+<ImageCard>:
+    orientation: 'vertical'
+    size_hint_y: None
+    height: "320dp"
+    md_bg_color: 1, 1, 1, 1
+    radius: [10, 10, 10, 10]
+    padding: "8dp"
+    elevation: 2
+    
+    BoxLayout:
+        size_hint_y: None
+        height: "200dp"
+        padding: "4dp"
+        
+        FitImage:
+            id: image
+            source: root.image_source
+            radius: [8, 8, 8, 8]
+    
+    BoxLayout:
+        orientation: 'vertical'
+        padding: "8dp"
+        
+        MDLabel:
+            text: root.device_name
+            font_style: "Subtitle1"
+            bold: True
+            size_hint_y: None
+            height: self.texture_size[1]
+        
+        MDLabel:
+            text: root.room_name
+            theme_text_color: "Secondary"
+            font_style: "Caption"
+            size_hint_y: None
+            height: self.texture_size[1]
+        
+        MDLabel:
+            text: root.timestamp_text
+            theme_text_color: "Secondary"
+            font_style: "Caption"
+            size_hint_y: None
+            height: self.texture_size[1]
+    
+    MDSeparator:
+        height: "1dp"
+    
+    MDFlatButton:
+        text: "ZOBRAZIŤ"
+        pos_hint: {"center_x": .5}
+        on_release: root.on_image_click()

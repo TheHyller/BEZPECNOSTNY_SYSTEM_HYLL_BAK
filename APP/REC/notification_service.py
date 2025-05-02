@@ -6,6 +6,9 @@ import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime, timedelta
 import logging
 from config.system_state import load_state, update_state
@@ -192,6 +195,13 @@ def _monitor_alarm_duration():
 def send_notification(message, level="info", image_path=None):
     """Odosiela notifikáciu užívateľovi."""
     try:
+        # Ak žiadna konkrétna cesta k obrázku nebola zadaná, pokúsime sa nájsť najnovší obrázok
+        if image_path is None:
+            # Nájdenie najnovšieho obrázku zo všetkých zariadení
+            image_path = find_latest_image()
+            if image_path:
+                logging.info(f"Automaticky vybraný najnovší obrázok pre notifikáciu: {image_path}")
+        
         # Pridanie do logu upozornení
         add_alert_log(message, level, image_path)
         
@@ -201,7 +211,7 @@ def send_notification(message, level="info", image_path=None):
         
         # Ak sú povolené e-mailové notifikácie a ide o dôležitú notifikáciu
         if notification_prefs.get("email", False) and level in ["warning", "danger"]:
-            send_email(message, settings)
+            send_email(message, settings, image_path)
         
         # Kontrola stavu systému a spustenie alarmu ak je systém zabezpečený a notifikácia je dôležitá
         if level in ["warning", "danger", "alert"]:
@@ -237,7 +247,7 @@ def send_notification(message, level="info", image_path=None):
         logging.error(f"Chyba pri odosielaní notifikácie: {e}")
         return False
 
-def send_email(message, settings=None):
+def send_email(message, settings=None, image_path=None):
     """Odošle e-mail s upozornením."""
     if settings is None:
         settings = load_settings()
@@ -266,7 +276,36 @@ def send_email(message, settings=None):
         Čas: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}
         """
         
+        if image_path is None:
+            body += "\n\nŽiadny obrázok nie je k dispozícii."
+        else:
+            body += "\n\nObrázok z kamery je priložený v prílohe."
+            
         msg.attach(MIMEText(body, 'plain'))
+        
+        # Pridanie obrázku ako prílohy, ak je k dispozícii
+        if image_path and os.path.exists(image_path):
+            try:
+                with open(image_path, 'rb') as img_file:
+                    img_data = img_file.read()
+                    
+                # Ak je príloha obrázok typu JPG/JPEG
+                if image_path.lower().endswith(('.jpg', '.jpeg')):
+                    img_attachment = MIMEImage(img_data, _subtype="jpeg")
+                else:
+                    # Pre iné typy súborov použijeme generickú prílohu
+                    img_attachment = MIMEBase('application', 'octet-stream')
+                    img_attachment.set_payload(img_data)
+                    encoders.encode_base64(img_attachment)
+                    
+                # Nastavenie názvu súboru v prílohe
+                img_filename = os.path.basename(image_path)
+                img_attachment.add_header('Content-Disposition', f'attachment; filename="{img_filename}"')
+                msg.attach(img_attachment)
+                
+                logging.info(f"Obrázok {image_path} priložený k e-mailu")
+            except Exception as e:
+                logging.error(f"Chyba pri pridávaní obrázka do e-mailu: {e}")
         
         # Získanie portu a servera
         smtp_server = email_config.get("smtp_server", "smtp.gmail.com")
@@ -294,7 +333,8 @@ def send_email(message, settings=None):
         server.sendmail(username, recipient, text)
         server.quit()
         
-        logging.info(f"E-mail úspešne odoslaný na adresu: {recipient}")
+        logging.info(f"E-mail úspešne odoslaný na adresu: {recipient}" + 
+                    (f" s prílohou {image_path}" if image_path else ""))
         return True
     except Exception as e:
         logging.error(f"Chyba pri odosielaní e-mailu: {e}")
@@ -583,3 +623,36 @@ def sync_state_from_system():
     except Exception as e:
         logging.error(f"Error synchronizing states: {e}")
         return False
+
+def find_latest_image(device_id=None):
+    """Nájde najnovší obrázok pre dané zariadenie alebo najnovší obrázok zo všetkých zariadení.
+    
+    Args:
+        device_id (str, optional): ID zariadenia. Ak nie je zadané, vráti najnovší obrázok zo všetkých zariadení.
+        
+    Returns:
+        str or None: Úplná cesta k najnovšiemu obrázku alebo None, ak žiadny obrázok neexistuje.
+    """
+    images_dir = os.path.join(os.path.dirname(__file__), '../data/images')
+    
+    if not os.path.exists(images_dir):
+        return None
+        
+    # Hľadanie všetkých obrázkov pre dané zariadenie alebo všetkých obrázkov
+    device_images = []
+    for filename in os.listdir(images_dir):
+        if filename.endswith('.jpg'):
+            # Ak je zadané device_id, filtrujeme podľa neho
+            if device_id is not None and not filename.startswith(f"{device_id}_"):
+                continue
+                
+            image_path = os.path.join(images_dir, filename)
+            timestamp = os.path.getmtime(image_path)
+            device_images.append((image_path, timestamp))
+    
+    # Zoradenie podľa času (najnovšie prvé)
+    if device_images:
+        device_images.sort(key=lambda x: x[1], reverse=True)
+        return device_images[0][0]  # Vrátenie iba cesty k najnovšiemu obrázku
+        
+    return None

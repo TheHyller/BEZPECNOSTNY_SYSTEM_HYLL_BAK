@@ -1,0 +1,17 @@
+<BoxLayout>
+    <ScreenManager id="gallery_manager">
+        <Screen name="gallery">
+            <BoxLayout orientation="vertical">
+                <MDBoxLayout padding="8dp" adaptive_height="True">
+                    <MDLabel text="Najnovšie snímky zo senzorov" halign="center" font_style="H6"/>
+                </MDBoxLayout>
+                
+                <ScrollView id="gallery_scroll" do_scroll_x="False">
+                    <GridLayout id="image_grid" cols="2" spacing="10dp" size_hint_y=None" padding="10dp">
+                        <!-- Image cards will be added here dynamically -->
+                    </GridLayout>
+                </ScrollView>
+            </BoxLayout>
+        </Screen>
+    </ScreenManager>
+</BoxLayout>

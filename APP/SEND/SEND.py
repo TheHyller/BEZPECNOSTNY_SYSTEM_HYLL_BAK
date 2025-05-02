@@ -204,19 +204,19 @@ def setup_gpio():
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
     
-    # Nastavenie vstupov pre senzory
-    GPIO.setup(MOTION_PIN, GPIO.IN)
-    GPIO.setup(DOOR_PIN, GPIO.IN)
-    GPIO.setup(WINDOW_PIN, GPIO.IN)
+    # Nastavenie vstupov pre senzory s internými pull-up rezistormi
+    GPIO.setup(MOTION_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(DOOR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.setup(WINDOW_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     
     # Nastavenie výstupu pre LED
     GPIO.setup(LED_PIN, GPIO.OUT)
     GPIO.output(LED_PIN, GPIO.LOW)
     
     # Nastavenie callbackov pre edge detekciu
-    GPIO.add_event_detect(MOTION_PIN, GPIO.BOTH, callback=motion_callback)
-    GPIO.add_event_detect(DOOR_PIN, GPIO.BOTH, callback=door_callback)
-    GPIO.add_event_detect(WINDOW_PIN, GPIO.BOTH, callback=window_callback)
+    GPIO.add_event_detect(MOTION_PIN, GPIO.BOTH, callback=motion_callback, bouncetime=200)
+    GPIO.add_event_detect(DOOR_PIN, GPIO.BOTH, callback=door_callback, bouncetime=200)
+    GPIO.add_event_detect(WINDOW_PIN, GPIO.BOTH, callback=window_callback, bouncetime=200)
 
 def setup_camera():
     """Inicializácia kamery."""

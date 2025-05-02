@@ -6,7 +6,9 @@ import time
 import os
 import socket
 import RPi.GPIO as GPIO
-from picamera2 import Picamera2
+# Replace PiCamera2 with direct libcamera imports
+import libcamera
+import subprocess
 from libcamera import controls
 import io
 import paho.mqtt.client as mqtt
@@ -223,21 +225,17 @@ def setup_camera():
     global camera
     
     try:
-        camera = Picamera2()
-        camera_config = camera.create_still_configuration(main={"size": camera_resolution})
-        camera.configure(camera_config)
-        
-        # Nastavenie rotácie ak je potrebná
-        if camera_rotation in [0, 90, 180, 270]:
-            camera.set_controls({"RotationDegrees": camera_rotation})
-            
+        # Using subprocess to call libcamera directly since the Python bindings can be limited
+        # First check if libcamera-still is available
+        subprocess.run(["libcamera-still", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         print(f"Kamera inicializovaná - rozlíšenie: {camera_resolution}, rotácia: {camera_rotation}°")
         
-        # Zahriatie kamery
+        # No need to warm up camera with libcamera-still approach, but we'll keep the print for consistency
         print(f"Zahriatie kamery ({camera_warmup_time}s)...")
-        camera.start()
         time.sleep(camera_warmup_time)
-        camera.stop()
+        
+        # Store resolution for later use
+        camera = {"resolution": camera_resolution, "rotation": camera_rotation}
         
     except Exception as e:
         print(f"Chyba pri inicializácii kamery: {e}")
@@ -551,20 +549,37 @@ def capture_and_send_image():
         # Indikácia začiatku snímania LED
         GPIO.output(LED_PIN, GPIO.HIGH)
         
-        # Zachytenie snímky do in-memory súboru
-        camera.start()
-        time.sleep(0.5)  # Krátka pauza na stabilizáciu kamery
+        # Create temporary filename for the captured image
+        temp_image_path = os.path.join(os.path.dirname(__file__), "temp_capture.jpg")
         
-        # Vytvorenie in-memory súboru pre obrázok
-        stream = io.BytesIO()
+        # Build the libcamera-still command
+        width, height = camera["resolution"]
+        rotation = camera["rotation"]
         
-        # Zachytenie snímky do súboru
-        camera.capture_file(stream, format='jpeg')
-        camera.stop()
+        # Use libcamera-still to capture an image
+        cmd = [
+            "libcamera-still",
+            "--width", str(width),
+            "--height", str(height), 
+            "--rotation", str(rotation),
+            "--nopreview",
+            "--output", temp_image_path,
+            "--immediate"  # Don't display a preview
+        ]
         
-        # Získanie dát zo streamu
-        stream.seek(0)
-        image_data = stream.getvalue()
+        # Run the command
+        print("Zachytávam snímku pomocou libcamera-still...")
+        subprocess.run(cmd, check=True)
+        
+        # Read the captured image
+        with open(temp_image_path, "rb") as f:
+            image_data = f.read()
+            
+        # Clean up the temporary file
+        try:
+            os.remove(temp_image_path)
+        except:
+            pass
         
         # Kódovanie obrázku do base64
         base64_data = base64.b64encode(image_data).decode('utf-8')

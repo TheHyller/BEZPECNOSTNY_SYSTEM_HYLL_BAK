@@ -52,7 +52,7 @@ SENSOR_LABELS = {
 
 # Intervaly (v sekundách)
 STATUS_INTERVAL = 30    # 30 sekúnd interval pre odoslanie všetkých stavov
-DEBOUNCE_TIME = 0.5     # 500ms debounce pre senzory
+DEBOUNCE_TIME = 0.1     # 100ms debounce pre senzory
 MQTT_RECONNECT_INTERVAL = 5  # 5 sekúnd interval pre opätovné pripojenie k MQTT
 DISCOVERY_RETRY_INTERVAL = 60  # 60 sekúnd interval pre opätovný pokus o zistenie brokera
 
@@ -450,7 +450,7 @@ def motion_callback(channel):
     current_time = time.time()
     if current_time - last_motion_time > DEBOUNCE_TIME:
         last_motion_time = current_time
-        current_state = GPIO.input(MOTION_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
+        current_state = GPIO.input(MOTION_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
         
         if current_state != last_motion_state:
             last_motion_state = current_state
@@ -468,7 +468,7 @@ def door_callback(channel):
     current_time = time.time()
     if current_time - last_door_time > DEBOUNCE_TIME:
         last_door_time = current_time
-        current_state = GPIO.input(DOOR_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
+        current_state = GPIO.input(DOOR_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
         
         if current_state != last_door_state:
             last_door_state = current_state
@@ -481,7 +481,7 @@ def window_callback(channel):
     current_time = time.time()
     if current_time - last_window_time > DEBOUNCE_TIME:
         last_window_time = current_time
-        current_state = GPIO.input(WINDOW_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
+        current_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
         
         if current_state != last_window_state:
             last_window_state = current_state
@@ -527,10 +527,10 @@ def publish_sensor_status(sensor_type, state):
 
 def send_all_sensors_status():
     """Odošle aktuálny stav všetkých senzorov."""
-    # Čítanie aktuálneho stavu senzorov - s pull-up rezistormi, LOW znamená aktivný senzor
-    motion_state = GPIO.input(MOTION_PIN) == GPIO.LOW  # True ak je senzor aktivovaný (pin je LOW)
-    door_state = GPIO.input(DOOR_PIN) == GPIO.LOW
-    window_state = GPIO.input(WINDOW_PIN) == GPIO.LOW
+    # Čítanie aktuálneho stavu senzorov s inverznou logikou - HIGH znamená aktivovaný senzor
+    motion_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
+    door_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
+    window_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
     
     # Publikovanie stavu každého senzora
     publish_sensor_status("motion", motion_state)

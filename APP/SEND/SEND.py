@@ -110,7 +110,7 @@ def load_config():
 
 def find_mqtt_broker():
     """Automaticky vyhľadá MQTT broker na sieti pomocou broadcast protokolu."""
-    global mqtt_broker, last_discovery_attempt
+    global mqtt_broker, last_discovery_attempt, MQTT_PORT
     
     print("Hľadám MQTT broker na sieti...")
     last_discovery_attempt = time.time()
@@ -632,14 +632,14 @@ def main():
         # Načítanie konfigurácie
         load_config()
         
-        # Automatické vyhľadanie MQTT brokera
-        find_mqtt_broker()
-        
-        # Nastavenie GPIO
+        # Nastavenie GPIO - presunute hore pred find_mqtt_broker
         setup_gpio()
         
-        # Inicializácia kamery
+        # Inicializácia kamery - presunute hore, aby bola kamera dostupna skorej
         setup_camera()
+        
+        # Automatické vyhľadanie MQTT brokera
+        find_mqtt_broker()
         
         # Nastavenie MQTT po zistení brokera
         setup_mqtt()

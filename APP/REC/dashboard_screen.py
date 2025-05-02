@@ -122,6 +122,8 @@ class DashboardScreen(MDScreen):
     
     # Počty zariadení
     device_count = StringProperty("0")
+    online_device_count = StringProperty("0")  # Pridaný chýbajúci property
+    sensors_triggered = StringProperty("0")    # Pridaný chýbajúci property
     
     # Dialóg pre zadanie PIN kódu
     pin_dialog = None
@@ -213,7 +215,6 @@ class DashboardScreen(MDScreen):
         # Vytvorenie obsahu dialógu
         content = PinInputDialog()
         
-        # Vytvorenie tlačidiel
         cancel_btn = MDFlatButton(
             text="ZRUŠIŤ",
             on_release=lambda x: self.pin_dialog.dismiss()

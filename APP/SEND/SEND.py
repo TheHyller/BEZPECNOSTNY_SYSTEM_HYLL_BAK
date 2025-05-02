@@ -6,7 +6,6 @@ import time
 import os
 import socket
 import RPi.GPIO as GPIO
-# Replace PiCamera2 with direct libcamera imports
 import libcamera
 import subprocess
 from libcamera import controls
@@ -38,6 +37,10 @@ MQTT_DISCOVERY_TIMEOUT = 30  # sekundy
 mqtt_client = None
 mqtt_connected = False
 mqtt_broker = DEFAULT_MQTT_BROKER  # Táto hodnota môže byť nahradená pri automatickom zisťovaní
+
+# Časovač pre zachytenie fotografie
+last_photo_time = 0
+PHOTO_COOLDOWN = 2  # 2 sekundy cooldown medzi zachytením fotografií
 
 # Nastavenia GPIO pinov
 MOTION_PIN = 17  # GPIO pre pohybový senzor
@@ -443,7 +446,7 @@ def publish_mqtt_status(status, message=None):
 
 def motion_callback(channel):
     """Callback pre pohybový senzor."""
-    global last_motion_time, last_motion_state
+    global last_motion_time, last_motion_state, last_photo_time
     
     current_time = time.time()
     if current_time - last_motion_time > DEBOUNCE_TIME:
@@ -459,9 +462,14 @@ def motion_callback(channel):
                 GPIO.output(LED_PIN, GPIO.HIGH)
                 threading.Timer(0.5, lambda: GPIO.output(LED_PIN, GPIO.LOW)).start()
                 
-                # Automaticky zachytiť a odoslať snímku pri detekcii pohybu
-                print("Pohyb detegovaný - zachytávam snímku...")
-                threading.Thread(target=capture_and_send_image).start()
+                # Automaticky zachytiť a odoslať snímku pri detekcii pohybu,
+                # ale iba ak uplynula doba cooldownu od poslednej fotografie
+                if current_time - last_photo_time > PHOTO_COOLDOWN:
+                    last_photo_time = current_time
+                    print(f"Pohyb detegovaný - zachytávam snímku (cooldown: {PHOTO_COOLDOWN}s)...")
+                    threading.Thread(target=capture_and_send_image).start()
+                else:
+                    print(f"Pohyb detegovaný - ignorujem fotografovanie (cooldown ešte neuplynul, zostáva {PHOTO_COOLDOWN - (current_time - last_photo_time):.1f}s)")
 
 def door_callback(channel):
     """Callback pre dverový kontakt."""

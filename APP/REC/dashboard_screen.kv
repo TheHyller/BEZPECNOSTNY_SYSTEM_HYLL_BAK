@@ -78,56 +78,56 @@
                     on_release: root.stop_alarm()
                     md_bg_color: [0.9, 0.1, 0.1, 1]
                     size_hint_x: 1
-                
-        # Štatistiky
-        MDCard:
-            orientation: "vertical"
-            padding: "16dp"
-            spacing: "8dp"
-            size_hint_y: None
-            height: "180dp"
-            
-            MDLabel:
-                text: "Stav systému"
-                halign: "center"
-                font_style: "H6"
-                size_hint_y: None
-                height: "40dp"
-                
-            MDGridLayout:
-                cols: 2
-                spacing: "8dp"
-                
-                MDLabel:
-                    text: "Celkový počet zariadení:"
-                    font_style: "Body1"
-                    halign: "right"
-                    
-                MDLabel:
-                    text: root.device_count
-                    font_style: "Body1"
-                    bold: True
-                    
-                MDLabel:
-                    text: "Aktívne zariadenia:"
-                    font_style: "Body1"
-                    halign: "right"
-                    
-                MDLabel:
-                    text: root.online_device_count
-                    font_style: "Body1"
-                    bold: True
-                    
-                MDLabel:
-                    text: "Aktivované senzory:"
-                    font_style: "Body1"
-                    halign: "right"
-                    
-                MDLabel:
-                    text: root.sensors_triggered
-                    font_style: "Body1"
-                    bold: True
-                    color: [0.9, 0.1, 0.1, 1] if int(root.sensors_triggered) > 0 else [0.1, 0.6, 0.1, 1]
+        
+        # Commented out statistics card that might be causing issues
+        # MDCard:
+        #     orientation: "vertical"
+        #     padding: "16dp"
+        #     spacing: "8dp"
+        #     size_hint_y: None
+        #     height: "180dp"
+        #     
+        #     MDLabel:
+        #         text: "Stav systému"
+        #         halign: "center"
+        #         font_style: "H6"
+        #         size_hint_y: None
+        #         height: "40dp"
+        #         
+        #     MDGridLayout:
+        #         cols: 2
+        #         spacing: "8dp"
+        #         
+        #         MDLabel:
+        #             text: "Celkový počet zariadení:"
+        #             font_style: "Body1"
+        #             halign: "right"
+        #             
+        #         MDLabel:
+        #             text: root.device_count
+        #             font_style: "Body1"
+        #             bold: True
+        #             
+        #         MDLabel:
+        #             text: "Aktívne zariadenia:"
+        #             font_style: "Body1"
+        #             halign: "right"
+        #             
+        #         MDLabel:
+        #             text: root.online_device_count
+        #             font_style: "Body1"
+        #             bold: True
+        #             
+        #         MDLabel:
+        #             text: "Aktivované senzory:"
+        #             font_style: "Body1"
+        #             halign: "right"
+        #             
+        #         MDLabel:
+        #             text: root.sensors_triggered
+        #             font_style: "Body1"
+        #             bold: True
+        #             color: [0.9, 0.1, 0.1, 1] if int(root.sensors_triggered) > 0 else [0.1, 0.6, 0.1, 1]
 
         # Navigačné tlačidlá                
         MDBoxLayout:

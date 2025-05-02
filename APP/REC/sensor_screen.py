@@ -17,6 +17,7 @@ class ImageViewerDialog(MDBoxLayout):
     """Dialog pre zobrazenie obrázka zo senzora/kamery"""
     image_source = StringProperty("")
     timestamp_text = StringProperty("")
+    is_fullscreen = BooleanProperty(False)
     
     def __init__(self, image_path, timestamp=None, **kwargs):
         super().__init__(**kwargs)
@@ -37,6 +38,21 @@ class ImageViewerDialog(MDBoxLayout):
                 self.timestamp_text = "Neznámy čas zachytenia"
         else:
             self.timestamp_text = "Neznámy čas zachytenia"
+    
+    def toggle_fullscreen(self):
+        """Prepínanie medzi normálnym a celoobrazovkovým zobrazením"""
+        self.is_fullscreen = not self.is_fullscreen
+        
+        if self.is_fullscreen:
+            # Celoobrazovkový režim
+            self.height = "600dp"  # Zväčšenie výšky
+            self.padding = "0dp"   # Odstránenie odsadenia
+            self.spacing = "0dp"   # Odstránenie medzer
+        else:
+            # Normálny režim
+            self.height = "400dp"
+            self.padding = "12dp"
+            self.spacing = "12dp"
 
 class SensorScreen(MDScreen):
     sensor_states = DictProperty({})
@@ -339,21 +355,43 @@ Stav: {sensor['status']}
         # Vytvorenie a zobrazenie dialógu s obrázkom
         content = ImageViewerDialog(image_path=image_path, timestamp=timestamp)
         
+        # Vytvorenie referencie na content objekt pre použitie v tlačidlách
+        self.image_content = content
+        
+        # Tlačidlá pre dialóg
+        buttons = [
+            MDFlatButton(
+                text="ZATVORIŤ",
+                theme_text_color="Custom",
+                text_color=self.theme_cls.primary_color,
+                on_release=lambda x: self.image_dialog.dismiss()
+            ),
+            MDFlatButton(
+                text="FULLSCREEN",
+                theme_text_color="Custom",
+                text_color=self.theme_cls.primary_color,
+                on_release=lambda x: self.toggle_fullscreen()
+            )
+        ]
+        
         self.image_dialog = MDDialog(
             title="Náhľad z kamery",
             type="custom",
             content_cls=content,
-            buttons=[
-                MDFlatButton(
-                    text="ZATVORIŤ",
-                    theme_text_color="Custom",
-                    text_color=self.theme_cls.primary_color,
-                    on_release=lambda x: self.image_dialog.dismiss()
-                )
-            ],
+            buttons=buttons,
             size_hint=(0.9, None)
         )
         self.image_dialog.open()
+    
+    def toggle_fullscreen(self):
+        """Prepína medzi normálnym a fullscreen režimom pre náhľad obrázku"""
+        if hasattr(self, 'image_content') and self.image_content:
+            self.image_content.toggle_fullscreen()
+            
+            # Aktualizácia textu tlačidla podľa aktuálneho stavu
+            for btn in self.image_dialog.buttons:
+                if btn.text == "FULLSCREEN" or btn.text == "UKONČIŤ FULLSCREEN":
+                    btn.text = "UKONČIŤ FULLSCREEN" if self.image_content.is_fullscreen else "FULLSCREEN"
     
     def stop_alarm_and_dismiss(self):
         """Zastaví alarm a zatvorí dialóg"""

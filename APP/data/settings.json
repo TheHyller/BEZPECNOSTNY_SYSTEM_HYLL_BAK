@@ -2,14 +2,14 @@
   "pin_code": "1234",
   "notification_preferences": {
     "sound": true,
-    "email": false
+    "email": true
   },
   "email_settings": {
-    "enabled": false,
+    "enabled": true,
     "smtp_server": "smtp.gmail.com",
     "smtp_port": 587,
-    "username": "vas@email.sk",
-    "password": "",
-    "recipient": "vas@email.sk"
+    "username": "sendmailhyll@gmail.com",
+    "password": "kmav ouvd fhwy wblu",
+    "recipient": "sendmailhyll@gmail.com"
   }
 }

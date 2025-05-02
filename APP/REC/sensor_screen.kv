@@ -28,3 +28,36 @@
                 height: self.texture_size[1]
                 halign: "right"
                 padding: "8dp", "4dp"
+
+<ImageViewerDialog>:
+    orientation: 'vertical'
+    
+    # Zobrazenie časovej značky (skryje sa v režime fullscreen)
+    MDLabel:
+        text: root.timestamp_text
+        halign: "center"
+        size_hint_y: None
+        height: self.texture_size[1]
+        opacity: 0 if root.is_fullscreen else 1
+        disabled: root.is_fullscreen
+        
+    # Obrázok s premenlivou výškou
+    BoxLayout:
+        orientation: 'vertical'
+        padding: "0dp" if root.is_fullscreen else "4dp"
+        
+        AsyncImage:
+            source: root.image_source
+            allow_stretch: True
+            keep_ratio: True
+            
+    # Tlačidlo pre ukončenie fullscreen režimu (viditeľné iba v režime fullscreen)
+    MDRaisedButton:
+        text: "UKONČIŤ FULLSCREEN"
+        pos_hint: {'center_x': 0.5}
+        size_hint_x: None
+        width: "200dp"
+        opacity: 1 if root.is_fullscreen else 0
+        disabled: not root.is_fullscreen
+        on_release: root.toggle_fullscreen()
+        md_bg_color: 0.1, 0.1, 0.1, 0.7  # Tmavé polopriehľadné pozadie

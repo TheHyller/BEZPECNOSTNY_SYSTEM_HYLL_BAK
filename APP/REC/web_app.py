@@ -104,7 +104,11 @@ def api_sensors():
             
             # Check if device is online
             if device_id in device_states:
-                if device_states[device_id].get('status') == 'ONLINE':
+                # Consider device online if it has status=ONLINE or if status field is missing but has sensor data
+                device_status = device_states[device_id].get('status', None)
+                has_sensor_data = any(k in device_states[device_id] for k in ['motion', 'door', 'window'])
+                
+                if device_status == 'ONLINE' or (device_status is None and has_sensor_data):
                     online_devices.add(device_id)
                 
                 room = device.get('room', 'Neznáma miestnosť')

@@ -592,15 +592,17 @@ def capture_and_send_image():
         # Kódovanie obrázku do base64
         base64_data = base64.b64encode(image_data).decode('utf-8')
         
-        # Príprava payload s metadátami
+        # Príprava payload s metadátami - upravený formát pre kompatibilitu s prijímačom
         payload = {
-            "device_id": DEVICE_ID,
-            "device_name": DEVICE_NAME,
-            "room": DEVICE_NAME,
-            "timestamp": time.time(),
-            "format": "jpeg",
-            "encoding": "base64",
-            "image": base64_data
+            "image_data": base64_data,
+            "metadata": {
+                "device_id": DEVICE_ID,
+                "device_name": DEVICE_NAME,
+                "room": DEVICE_NAME,
+                "timestamp": time.time(),
+                "format": "jpeg",
+                "trigger": "motion"
+            }
         }
         
         # Publikovanie správy s obrázkom

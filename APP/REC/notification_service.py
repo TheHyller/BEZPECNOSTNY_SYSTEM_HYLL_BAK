@@ -119,6 +119,20 @@ def stop_alarm():
         _alarm_active = False
         update_state({"alarm_active": False})
         
+        # Send reset command to all devices to ensure they stop their alarms
+        try:
+            # Import mqtt_client here to avoid circular imports
+            from mqtt_client import mqtt_client
+            if mqtt_client and hasattr(mqtt_client, "publish_control_message"):
+                # Send stop alarm command to all devices using broadcast topic
+                mqtt_client.publish_control_message("all", "RESET", {
+                    "command": "RESET",
+                    "message": "Alarm deactivated by user"
+                })
+                logging.info("Sent RESET command to all devices to stop alarm")
+        except Exception as e:
+            logging.error(f"Error sending RESET command to devices: {e}")
+        
         logging.info("Alarm bol zastavený")
         return True
     except Exception as e:

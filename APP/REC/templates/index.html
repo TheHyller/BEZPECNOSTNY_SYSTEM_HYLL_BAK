@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
-        .container { max-width: 480px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+        .container { max-width: 500px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
         h2 { text-align: center; margin-top: 0; }
         .status { margin: 16px 0; text-align: center; font-size: 1.1em; }
         .status-panel { padding: 12px; margin: 12px 0; border-radius: 4px; text-align: center; }
@@ -72,10 +72,6 @@
             <div class="sensor-label">Aktivované senzory</div>
             <div class="sensor-value" id="triggeredSensors">0</div>
         </div>
-        <div class="sensor-stat">
-            <div class="sensor-label">Stav systému</div>
-            <div class="sensor-value" id="systemMode">-</div>
-        </div>
     </div>
 
     <!-- Action buttons -->
@@ -133,7 +129,6 @@ function updateUI() {
         const deviceCount = document.getElementById('deviceCount');
         const deviceOnlineCount = document.getElementById('deviceOnlineCount');
         const triggeredSensors = document.getElementById('triggeredSensors');
-        const systemMode = document.getElementById('systemMode');
         const lastUpdate = document.getElementById('lastUpdate');
         
         // Aktualizácia štatistík - tu by sme mali volať API na získanie údajov zo senzorov pre počet aktívnych
@@ -171,8 +166,6 @@ function updateUI() {
         if (alarmActive) {
             status.innerText = "ALARM AKTÍVNY! Narušenie detegované!";
             statusPanel.className = "status-panel status-alarm";
-            systemMode.innerText = "ALARM";
-            systemMode.className = "sensor-value alert";
             
             // Zobraziť stop alarm tlačidlo a dialog
             if (stopAlarmBtn) {
@@ -193,8 +186,6 @@ function updateUI() {
             const remainingSeconds = Math.max(0, Math.ceil(countdownDeadline - Date.now()/1000));
             status.innerText = `POZOR! Máte ${remainingSeconds} sekúnd na deaktiváciu systému`;
             statusPanel.className = "status-panel status-alarm";
-            systemMode.innerText = "ODPOČET ALARMU";
-            systemMode.className = "sensor-value alert";
             
             // Zobraziť countdown a trigger message
             countdown.innerText = `${remainingSeconds}s do spustenia alarmu: ${triggerMessage}`;
@@ -212,20 +203,14 @@ function updateUI() {
         } else if (armedMode === 'armed_home') {
             status.innerText = "Systém zabezpečený - režim Doma";
             statusPanel.className = "status-panel status-armed-home";
-            systemMode.innerText = "ZABEZPEČENÝ (DOMA)";
-            systemMode.className = "sensor-value";
             countdown.style.display = 'none';
         } else if (armedMode === 'armed_away') {
             status.innerText = "Systém zabezpečený - režim Preč";
             statusPanel.className = "status-panel status-armed-away";
-            systemMode.innerText = "ZABEZPEČENÝ (PREČ)";
-            systemMode.className = "sensor-value";
             countdown.style.display = 'none';
         } else {
             status.innerText = "Systém nezabezpečený";
             statusPanel.className = "status-panel status-disarmed";
-            systemMode.innerText = "NEZABEZPEČENÝ";
-            systemMode.className = "sensor-value";
             countdown.style.display = 'none';
         }
         
@@ -256,10 +241,18 @@ function updateSensorStats() {
         const deviceOnlineCount = document.getElementById('deviceOnlineCount');
         const triggeredSensors = document.getElementById('triggeredSensors');
         
-        if (data.sensors) {
+        // If metrics are provided directly from the API, use them
+        if (data.metrics) {
+            deviceCount.innerText = data.metrics.total_devices;
+            deviceOnlineCount.innerText = data.metrics.online_devices;
+            triggeredSensors.innerText = data.metrics.triggered_sensors;
+            triggeredSensors.className = data.metrics.triggered_sensors > 0 ? "sensor-value alert" : "sensor-value";
+        } 
+        // Fallback to manual calculation if metrics aren't provided
+        else if (data.sensors) {
             // Počet zariadení
             const uniqueDevices = new Set();
-            data.sensors.forEach(s => uniqueDevices.add(s.device_name));
+            data.sensors.forEach(s => uniqueDevices.add(s.device_id));
             deviceCount.innerText = uniqueDevices.size;
             
             // Online zariadenia - toto by malo byť poskytované inou API

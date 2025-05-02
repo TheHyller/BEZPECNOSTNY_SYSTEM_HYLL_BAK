@@ -78,16 +78,31 @@ def api_sensors():
             device_states = json.load(f)
             
         sensors_data = []
+        unique_devices = set()
+        online_devices = set()
+        triggered_count = 0
+        
         for device in devices:
-            device_id = device['id']  # Get the device ID using the correct key
+            device_id = device['id']
+            device_name = device['name'] if 'name' in device else device_id
+            unique_devices.add(device_id)
+            
+            # Check if device is online
             if device_id in device_states:
-                device_name = device['name'] if 'name' in device else device_id
+                if device_states[device_id].get('status') == 'ONLINE':
+                    online_devices.add(device_id)
+                
                 room = device.get('room', 'Neznáma miestnosť')
                 
                 for sensor_type, status in device_states[device_id].items():
                     # Skip non-sensor fields
                     if sensor_type not in ['motion', 'door', 'window']:
                         continue
+                        
+                    # Count triggered sensors
+                    if (sensor_type == 'motion' and status == 'DETECTED') or \
+                       (sensor_type in ['door', 'window'] and status == 'OPEN'):
+                        triggered_count += 1
                         
                     sensor_name = get_sensor_name(sensor_type)
                     state_text = get_state_text(sensor_type, status)
@@ -103,7 +118,17 @@ def api_sensors():
                         'status_class': get_status_class(sensor_type, status)
                     })
                     
-        return jsonify({"sensors": sensors_data})
+        # Add summary metrics to the response
+        metrics = {
+            'total_devices': len(unique_devices),
+            'online_devices': len(online_devices),
+            'triggered_sensors': triggered_count
+        }
+                    
+        return jsonify({
+            "sensors": sensors_data,
+            "metrics": metrics
+        })
     except Exception as e:
         app.logger.error(f"Chyba pri získavaní senzorov: {e}")
         return jsonify({"error": str(e)}), 500

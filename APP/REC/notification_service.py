@@ -344,6 +344,11 @@ def _check_sensor_triggers(armed_mode):
         with open(device_status_path, 'r', encoding='utf-8') as f:
             current_states = json.load(f)
         
+        # Inicializácia, ak neexistuje predchádzajúci stav
+        if not _last_sensor_states:
+            _last_sensor_states = current_states.copy()
+            return
+            
         # Kontrola zmien stavu
         for device_id, device_data in current_states.items():
             # Preskakovanie kľúčov, ktoré nie sú zariadenia
@@ -354,27 +359,33 @@ def _check_sensor_triggers(armed_mode):
             trigger_alarm = False
             trigger_message = None
             room_name = device_data.get('room', device_id)
+            device_name = device_data.get('device_name', device_id)
             
             # Kontrola pohybu - len v režime armed_away
             if 'motion' in device_data and device_data['motion'] == 'DETECTED':
                 # V režime Doma ignorujeme pohybové detektory
                 if armed_mode == 'armed_away':
-                    trigger_alarm = True
-                    trigger_message = f"Zaznamenaný pohyb v miestnosti {room_name}"
+                    # Kontrola či to nie je nová správa (zmena stavu)
+                    if device_id not in _last_sensor_states or _last_sensor_states[device_id].get('motion') != 'DETECTED':
+                        logging.info(f"Pohyb detegovaný pre {device_id} v {room_name}")
+                        trigger_alarm = True
+                        trigger_message = f"Zaznamenaný pohyb v miestnosti {room_name} ({device_name})"
             
             # Kontrola otvorenia dverí - vždy
             if 'door' in device_data and device_data['door'] == 'OPEN':
                 # Kontrola, či to nie je nová správa (zmena stavu)
                 if device_id not in _last_sensor_states or _last_sensor_states[device_id].get('door') != 'OPEN':
+                    logging.info(f"Dvere otvorené pre {device_id} v {room_name}")
                     trigger_alarm = True
-                    trigger_message = f"Otvorené dvere v miestnosti {room_name}"
+                    trigger_message = f"Otvorené dvere v miestnosti {room_name} ({device_name})"
             
             # Kontrola otvorenia okna - vždy
             if 'window' in device_data and device_data['window'] == 'OPEN':
                 # Kontrola, či to nie je nová správa (zmena stavu)
                 if device_id not in _last_sensor_states or _last_sensor_states[device_id].get('window') != 'OPEN':
+                    logging.info(f"Otvorené okno v miestnosti pre {device_id} in {room_name}")
                     trigger_alarm = True
-                    trigger_message = f"Otvorené okno v miestnosti {room_name}"
+                    trigger_message = f"Otvorené okno v miestnosti {room_name} ({device_name})"
             
             # Ak bol detekovaný alarm, spravujeme ho podľa aktuálneho stavu systému
             if trigger_alarm and trigger_message:
@@ -400,6 +411,8 @@ def _check_sensor_triggers(armed_mode):
         
     except Exception as e:
         logging.error(f"Chyba pri kontrole senzorov: {e}")
+        import traceback
+        logging.error(traceback.format_exc())
 
 def add_alert(message, level="info", image_path=None):
     """Pridá upozornenie do logu upozornení."""

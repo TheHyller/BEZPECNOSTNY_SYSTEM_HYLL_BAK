@@ -450,7 +450,7 @@ def motion_callback(channel):
     current_time = time.time()
     if current_time - last_motion_time > DEBOUNCE_TIME:
         last_motion_time = current_time
-        current_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
+        current_state = GPIO.input(MOTION_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
         
         if current_state != last_motion_state:
             last_motion_state = current_state
@@ -468,7 +468,7 @@ def door_callback(channel):
     current_time = time.time()
     if current_time - last_door_time > DEBOUNCE_TIME:
         last_door_time = current_time
-        current_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
+        current_state = GPIO.input(DOOR_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
         
         if current_state != last_door_state:
             last_door_state = current_state
@@ -481,7 +481,7 @@ def window_callback(channel):
     current_time = time.time()
     if current_time - last_window_time > DEBOUNCE_TIME:
         last_window_time = current_time
-        current_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
+        current_state = GPIO.input(WINDOW_PIN) == GPIO.LOW  # Invertovaná logika s pull-up
         
         if current_state != last_window_state:
             last_window_state = current_state
@@ -493,13 +493,19 @@ def publish_sensor_status(sensor_type, state):
         return False
     
     try:
+        # Convert boolean state to expected string formats
+        state_value = ""
+        if sensor_type == "motion":
+            state_value = "DETECTED" if state else "IDLE"
+        elif sensor_type in ["door", "window"]:
+            state_value = "OPEN" if state else "CLOSED"
+        
+        # Create payload with correct format
         payload = {
-            "sensor": sensor_type,
-            "state": state,
-            "label": SENSOR_LABELS.get(sensor_type, sensor_type),
             "device_id": DEVICE_ID,
             "device_name": DEVICE_NAME,
             "room": DEVICE_NAME,
+            sensor_type: state_value,  # Use sensor_type as key with state_value string
             "timestamp": time.time()
         }
         
@@ -510,7 +516,7 @@ def publish_sensor_status(sensor_type, state):
         )
         
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            print(f"Senzor {SENSOR_LABELS.get(sensor_type, sensor_type)}: {'Aktivovaný' if state else 'Deaktivovaný'}")
+            print(f"Sensor {SENSOR_LABELS.get(sensor_type, sensor_type)}: {state_value}")
             return True
         else:
             print(f"Chyba pri publikovaní stavu senzora: {result.rc}")
@@ -521,22 +527,15 @@ def publish_sensor_status(sensor_type, state):
 
 def send_all_sensors_status():
     """Odošle aktuálny stav všetkých senzorov."""
-    # Čítanie aktuálneho stavu senzorov
-    motion_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
-    door_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
-    window_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
+    # Čítanie aktuálneho stavu senzorov - s pull-up rezistormi, LOW znamená aktivný senzor
+    motion_state = GPIO.input(MOTION_PIN) == GPIO.LOW  # True ak je senzor aktivovaný (pin je LOW)
+    door_state = GPIO.input(DOOR_PIN) == GPIO.LOW
+    window_state = GPIO.input(WINDOW_PIN) == GPIO.LOW
     
     # Publikovanie stavu každého senzora
     publish_sensor_status("motion", motion_state)
     publish_sensor_status("door", door_state)
     publish_sensor_status("window", window_state)
-
-def periodic_status():
-    """Pravidelne odosiela stav všetkých senzorov."""
-    while True:
-        time.sleep(STATUS_INTERVAL)
-        if mqtt_connected:
-            send_all_sensors_status()
 
 def capture_and_send_image():
     """Zachytí snímok z kamery a odošle ho cez MQTT."""
@@ -647,13 +646,10 @@ def main():
         # Spustenie vlákna monitorovania MQTT
         threading.Thread(target=mqtt_monitor, daemon=True, name="MQTTMonitorThread").start()
         
-        # Spustenie vlákna pre periodické odosielanie stavov
-        threading.Thread(target=periodic_status, daemon=True, name="StatusThread").start()
-        
         # Čítanie počiatočného stavu senzorov
-        last_motion_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
-        last_door_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
-        last_window_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
+        last_motion_state = GPIO.input(MOTION_PIN) == GPIO.LOW
+        last_door_state = GPIO.input(DOOR_PIN) == GPIO.LOW
+        last_window_state = GPIO.input(WINDOW_PIN) == GPIO.LOW
         
         # Odoslanie počiatočného stavu
         publish_mqtt_status("ONLINE", "Program spustený")

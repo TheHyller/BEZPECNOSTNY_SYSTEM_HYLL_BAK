@@ -197,21 +197,6 @@ Webová aplikácia poskytuje API pre integráciu s inými systémami. Podrobnú 
 └── technicka_dokumentacia.md # Technická dokumentácia systému
 ```
 
-## 📊 UML dokumentácia
-
-Projekt obsahuje rozsiahlu UML dokumentáciu v adresári `uml/`, ktorá zahŕňa:
-
-- Aktivitné diagramy procesov systému (alarm_response_activity)
-- Komponentové diagramy architektúry (component_diagram)
-- Diagramy nasadenia (deployment_diagram)
-- Sekvenčné diagramy komunikácie (device_discovery_sequence)
-- Stavové diagramy systému (security_system_state)
-- Diagramy workflow monitorovania senzorov (sensor_monitoring_workflow)
-- Diagramy MQTT komunikácie (mqtt_message_sequence)
-- A mnohé ďalšie
-
-UML diagramy sú dostupné v formáte PlantUML (.plantuml) aj v textovej forme s vysvetlivkami (.md).
-
 ## 🤝 Prispievanie
 Príspevky sú vítané! Ak chcete prispieť:
 
@@ -227,6 +212,6 @@ Tento projekt je distribuovaný pod licenciou MIT. Pre viac informácií si pozr
 ## 📞 Kontakt
 Branislav Hýll - [hyll@hylllab.eu](mailto:hyll@hylllab.eu)
 
-Project Link: [https://github.com/Hyller/home-security-system](https://github.com/Hyller/home-security-system)
+Projekt Link: [https://github.com/Hyller/home-security-system](https://github.com/Hyller/home-security-system)
 
 ---

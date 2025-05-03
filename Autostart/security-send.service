@@ -1,0 +1,17 @@
+[Unit]
+Description=Security System SEND Module
+After=network.target mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/BEZPECNOSTNY_SYSTEM_HYLL_BAK/APP
+ExecStart=/bin/bash /home/pi/BEZPECNOSTNY_SYSTEM_HYLL_BAK/APP/launch_send.sh
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

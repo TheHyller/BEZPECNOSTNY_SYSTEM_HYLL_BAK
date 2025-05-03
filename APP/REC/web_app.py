@@ -4,7 +4,7 @@ from config.system_state import load_state, save_state, set_lockout, is_locked_o
 from config.settings import load_settings, save_settings
 from config.devices_manager import load_devices
 from config.alerts_log import get_recent_alerts, clear_alerts
-from mqtt_client import mqtt_client  # Importovanie mqtt_client singleton
+from mqtt_client import mqtt_client
 import notification_service as ns
 from datetime import datetime, timedelta
 import time
@@ -14,7 +14,6 @@ import threading
 
 app = Flask(__name__, template_folder='templates')
 
-# Štatistiky MQTT pripojenia
 mqtt_stats = {
     'start_time': time.time(),
     'message_count': 0,
@@ -23,12 +22,10 @@ mqtt_stats = {
     'last_error': None
 }
 
-# Registrácia callback funkcie pre aktualizáciu štatistík
 @mqtt_client.on_message
 def on_mqtt_message(topic, payload):
     mqtt_stats['message_count'] += 1
     
-    # Aktualizácia zoznamu zariadení, ak sa jedná o status správu
     if topic.startswith(mqtt_client.config['topics']['status']):
         try:
             device_id = topic.split('/')[-1]
@@ -75,10 +72,9 @@ def api_sensors():
         device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
         
         if not os.path.exists(device_status_path):
-            app.logger.warning("Device status file not found")
+            app.logger.warning("Súbor stavu zariadenia nenájdený")
             return jsonify({"sensors": [], "metrics": {"total_devices": 0, "online_devices": 0, "triggered_sensors": 0}}), 200
         
-        # Load device states
         with open(device_status_path, 'r', encoding='utf-8') as f:
             device_states = json.load(f)
             
@@ -88,23 +84,19 @@ def api_sensors():
         triggered_count = 0
         
         for device in devices:
-            # Check for either 'id' or 'device_id' field
             device_id = None
             if 'id' in device:
                 device_id = device['id']
             elif 'device_id' in device:
                 device_id = device['device_id']
             else:
-                app.logger.warning(f"Device missing identifier field: {device}")
+                app.logger.warning(f"Zariadeniu chýba identifikačné pole: {device}")
                 continue
                 
-            # Ensure 'name' field is present, fallback to device_id if not
             device_name = device.get('name', device.get('device_name', device_id))
             unique_devices.add(device_id)
             
-            # Check if device is online
             if device_id in device_states:
-                # Consider device online if it has status=ONLINE or if status field is missing but has sensor data
                 device_status = device_states[device_id].get('status', None)
                 has_sensor_data = any(k in device_states[device_id] for k in ['motion', 'door', 'window'])
                 
@@ -114,11 +106,9 @@ def api_sensors():
                 room = device.get('room', 'Neznáma miestnosť')
                 
                 for sensor_type, status in device_states[device_id].items():
-                    # Skip non-sensor fields
                     if sensor_type not in ['motion', 'door', 'window']:
                         continue
                         
-                    # Count triggered sensors
                     if (sensor_type == 'motion' and status == 'DETECTED') or \
                        (sensor_type in ['door', 'window'] and status == 'OPEN'):
                         triggered_count += 1
@@ -137,7 +127,6 @@ def api_sensors():
                         'status_class': get_status_class(sensor_type, status)
                     })
                     
-        # Add summary metrics to the response
         metrics = {
             'total_devices': len(unique_devices),
             'online_devices': len(online_devices),
@@ -160,7 +149,6 @@ def api_sensors():
 @app.route('/api/state', methods=['GET'])
 def api_state():
     state = load_state()
-    
     return jsonify(state)
 
 @app.route('/api/system/arm', methods=['POST'])
@@ -168,16 +156,14 @@ def api_arm_system():
     """API endpoint pre aktiváciu zabezpečenia v konkrétnom režime."""
     try:
         data = request.get_json()
-        arm_mode = data.get('mode', 'armed_away')  # armed_home alebo armed_away
+        arm_mode = data.get('mode', 'armed_away')
         pin = data.get('pin')
         
         if arm_mode not in ['armed_home', 'armed_away']:
             return jsonify({"success": False, "message": "Neplatný režim zabezpečenia"}), 400
         
-        # Kontrola PIN kódu
         settings = load_settings()
         if pin != settings.get('pin_code'):
-            # Zlý PIN kód - zvýšiť počet neúspešných pokusov
             state = load_state()
             state['failed_attempts'] = state.get('failed_attempts', 0) + 1
             if state['failed_attempts'] >= 3:
@@ -186,10 +172,8 @@ def api_arm_system():
             save_state(state)
             return jsonify({"success": False, "message": "Nesprávny PIN kód!"}), 401
             
-        # Aktualizácia stavu systému
         update_state({"armed_mode": arm_mode, "alarm_active": False, "failed_attempts": 0})
         
-        # Odoslanie notifikácie
         mode_name = "Doma" if arm_mode == "armed_home" else "Preč"
         ns.send_notification(f"Systém zabezpečený v režime {mode_name}")
         
@@ -205,13 +189,11 @@ def api_arm_system():
 def api_disarm_system():
     """API endpoint pre deaktiváciu zabezpečenia."""
     try:
-        # Kontrola PIN kódu
         data = request.get_json()
         pin = data.get('pin')
         
         settings = load_settings()
         if pin != settings.get('pin_code'):
-            # Zlý PIN kód - zvýšiť počet neúspešných pokusov
             state = load_state()
             state['failed_attempts'] = state.get('failed_attempts', 0) + 1
             if state['failed_attempts'] >= 3:
@@ -220,24 +202,20 @@ def api_disarm_system():
             save_state(state)
             return jsonify({"success": False, "message": "Nesprávny PIN kód!"}), 401
         
-        # Aktualizácia stavu systému
         update_state({
             "armed_mode": "disarmed", 
             "alarm_active": False,
-            "alarm_countdown_active": False,  # Explicitly disable countdown
+            "alarm_countdown_active": False,
             "alarm_countdown_deadline": None,
             "alarm_trigger_message": None,
             "failed_attempts": 0
         })
         
-        # Ak je aktívny alarm alebo odpočítavanie, zastavíme ho
         if ns.is_alarm_active() or ns.is_alarm_countdown_active():
             ns.stop_alarm()
         
-        # Synchronizácia interného stavu s aktuálnym systémovým stavom
         ns.sync_state_from_system()
         
-        # Odoslanie notifikácie
         ns.send_notification("Systém deaktivovaný")
         
         return jsonify({
@@ -252,7 +230,6 @@ def api_disarm_system():
 def api_stop_alarm():
     """API endpoint pre zastavenie alarmu a deaktiváciu systému."""
     try:
-        # Kontrola PIN kódu
         data = request.get_json()
         pin = data.get('pin')
         
@@ -260,7 +237,6 @@ def api_stop_alarm():
         if pin != settings.get('pin_code'):
             return jsonify({"success": False, "message": "Nesprávny PIN kód!"}), 401
         
-        # Zastavenie alarmu a deaktivácia systému
         ns.stop_alarm()
         update_state({
             "armed_mode": "disarmed",
@@ -270,10 +246,8 @@ def api_stop_alarm():
             "alarm_trigger_message": None
         })
         
-        # Synchronizácia interného stavu s aktuálnym systémovým stavom
         ns.sync_state_from_system()
         
-        # Odoslanie notifikácie
         ns.send_notification("Alarm zastavený a systém deaktivovaný")
         
         return jsonify({
@@ -316,18 +290,15 @@ def api_get_image():
         if not image_path:
             return "Chýba parameter 'path'", 400
         
-        # Verifikácia cesty - bezpečnostné opatrenie proti úniku súborov mimo povolených adresárov
         image_path = os.path.abspath(image_path)
         data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data'))
         
-        # Kontrola, či cesta je v povolenej zložke (napr. /data/images/)
         if not image_path.startswith(data_dir):
             return "Prístup zamietnutý", 403
             
         if not os.path.exists(image_path):
             return "Obrázok nenájdený", 404
             
-        # Odoslanie súboru
         return send_file(image_path, mimetype='image/jpeg')
     except Exception as e:
         app.logger.error(f"Chyba pri získavaní obrázku: {e}")
@@ -337,13 +308,11 @@ def api_get_image():
 def api_activate():
     """Spätná kompatibilita s pôvodným API - nastaví režim 'armed_away'"""
     try:
-        # Kontrola PIN kódu
         data = request.get_json()
         pin = data.get('pin')
         
         settings = load_settings()
         if pin != settings.get('pin_code'):
-            # Zlý PIN kód - zvýšiť počet neúspešných pokusov
             state = load_state()
             state['failed_attempts'] = state.get('failed_attempts', 0) + 1
             if state['failed_attempts'] >= 3:
@@ -362,12 +331,10 @@ def api_activate():
 @app.route('/api/sensor_trigger', methods=['POST'])
 def api_sensor_trigger():
     state = load_state()
-    # Kontrola či alarm už nie je spustený, aby sme predišli resetovaniu časovača
     if not state['system_activated'] or state['alarm_triggered']:
         return jsonify({"ok": False, "msg": "Systém nie je aktivovaný alebo alarm už beží"}), 400
         
     state['alarm_triggered'] = True
-    # Nastav deadline 60 sekúnd od teraz, ale len ak už nie je nastavený
     if not state.get('alarm_deadline'):
         deadline = (datetime.now() + timedelta(seconds=60)).timestamp()
         state['alarm_deadline'] = deadline
@@ -385,13 +352,11 @@ def api_pin():
     state = load_state()
     
     if pin == settings['pin_code']:
-        # Ak je aktívny alarm, deaktivujeme ho, ale režim zabezpečenia ponecháme aktívny
         if state.get('alarm_active', False):
             ns.stop_alarm()
             update_state({"alarm_active": False})
             return jsonify({"success": True, "message": "Alarm deaktivovaný"})
         
-        # Inak deaktivujeme celý systém
         update_state({
             "armed_mode": "disarmed",
             "alarm_active": False, 
@@ -411,7 +376,6 @@ def api_mqtt_status():
     """Poskytuje informácie o stave MQTT pripojenia"""
     uptime = int(time.time() - mqtt_stats['start_time'])
     
-    # Spočítanie online zariadení
     online_devices = 0
     for device in mqtt_stats['connected_devices'].values():
         if device.get('status') == 'ONLINE':
@@ -442,19 +406,16 @@ def api_mqtt_devices_clear():
     try:
         mqtt_stats['connected_devices'] = {}
         
-        # Resetovať pripojenia prostredníctvom MQTT príkazov na všetky zariadenia
         for topic in mqtt_client.config['topics'].values():
             if mqtt_client.connected:
-                # Odoslanie broadcast príkazu na resetovanie zariadení
                 mqtt_client.client.publish(f"{topic}/broadcast", json.dumps({
                     "command": "RECONNECT",
                     "timestamp": datetime.now().isoformat()
                 }))
         
-        # Reštartovať MQTT klienta
         mqtt_stats['reconnect_count'] += 1
         mqtt_client.stop()
-        time.sleep(1)  # Krátke oneskorenie pre ukončenie spojenia
+        time.sleep(1)
         mqtt_client.config = mqtt_client._load_config()
         mqtt_client.start()
         
@@ -468,7 +429,6 @@ def api_mqtt_devices_clear():
 def api_mqtt_config():
     """Získať alebo nastaviť MQTT konfiguráciu"""
     if request.method == 'GET':
-        # Vrátiť aktuálnu konfiguráciu (bez citlivých údajov ako je heslo)
         config = mqtt_client.config.copy()
         if 'password' in config:
             config['password'] = '********' if config['password'] else ''
@@ -476,24 +436,18 @@ def api_mqtt_config():
     
     elif request.method == 'POST':
         try:
-            # Aktualizovať konfiguráciu
             new_config = request.json
             
-            # Validácia základných polí
             if not new_config.get('broker'):
                 return jsonify({'success': False, 'message': 'Chýba adresa MQTT brokera'}), 400
                 
-            # Načítanie aktuálnej konfigurácie
             current_config = mqtt_client.config
             
-            # Aktualizácia konfigurácie
             for key, value in new_config.items():
-                # Nenastavovať heslo, ak je to "********" (používateľ ho nezmenil)
                 if key == 'password' and value == '********':
                     continue
                 current_config[key] = value
             
-            # Uloženie konfigurácie do súboru
             config_path = os.path.join(os.path.dirname(__file__), '../data/mqtt_config.json')
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(current_config, f, indent=4, ensure_ascii=False)
@@ -509,11 +463,9 @@ def api_mqtt_reconnect():
     try:
         mqtt_stats['reconnect_count'] += 1
         
-        # Zastavenie a opätovné spustenie MQTT klienta
         mqtt_client.stop()
-        time.sleep(1)  # Krátke oneskorenie pre ukončenie spojenia
+        time.sleep(1)
         
-        # Znovunačítanie konfigurácie a spustenie klienta
         mqtt_client.config = mqtt_client._load_config()
         mqtt_client.start()
         
@@ -546,16 +498,14 @@ def api_mqtt_command():
 
 @app.route('/api/identify/<device_id>', methods=['POST'])
 def api_identify_device(device_id):
-    """API endpoint for sending IDENTIFY command to a specific device"""
+    """API endpoint pre odoslanie príkazu IDENTIFY na špecifické zariadenie"""
     try:
-        # Verify the device_id matches a recognized pattern
         if not device_id or not isinstance(device_id, str) or len(device_id) < 3:
             return jsonify({'success': False, 'message': 'Neplatné ID zariadenia'}), 400
             
-        # Send the IDENTIFY command to the device via MQTT
         result = mqtt_client.publish_control_message(
             device_id, 
-            "IDENTIFY",  # Command name
+            "IDENTIFY",
             {
                 "timestamp": time.time()
             }
@@ -600,7 +550,6 @@ def api_settings_pin():
         if old_pin != settings.get('pin_code'):
             return jsonify({"success": False, "message": "Nesprávny aktuálny PIN kód"}), 401
             
-        # Aktualizácia PIN kódu
         settings['pin_code'] = new_pin
         save_settings(settings)
         
@@ -641,26 +590,22 @@ def api_settings_email():
     try:
         data = request.get_json()
         
-        # Validácia požadovaných polí
         required_fields = ['enabled', 'smtp_server', 'smtp_port', 'username', 'recipient']
         for field in required_fields:
             if field not in data:
                 return jsonify({"success": False, "message": f"Chýba parameter {field}"}), 400
                 
-        # Načítanie existujúcich nastavení
         settings = load_settings()
         
         if "email_settings" not in settings:
             settings["email_settings"] = {}
             
-        # Aktualizácia polí
         settings["email_settings"]["enabled"] = data["enabled"]
         settings["email_settings"]["smtp_server"] = data["smtp_server"]
         settings["email_settings"]["smtp_port"] = data["smtp_port"]
         settings["email_settings"]["username"] = data["username"]
         settings["email_settings"]["recipient"] = data["recipient"]
         
-        # Aktualizácia hesla, len ak bolo zadané nové
         if "password" in data:
             settings["email_settings"]["password"] = data["password"]
             
@@ -677,11 +622,9 @@ def api_settings_email_test():
     try:
         settings = load_settings()
         
-        # Kontrola, či sú nastavenia e-mailu nakonfigurované
         if not settings.get("email_settings") or not settings["email_settings"].get("enabled"):
             return jsonify({"success": False, "message": "E-mailové notifikácie nie sú povolené"}), 400
             
-        # Skúsime poslať testovací e-mail
         test_message = "Toto je testovacia správa z vášho domáceho bezpečnostného systému."
         success = ns.send_email(test_message, settings)
         
@@ -697,30 +640,24 @@ def api_settings_email_test():
 def api_latest_images():
     """Poskytuje posledné obrázky pre jednotlivé zariadenia."""
     try:
-        # Cesta k priečinku s obrázkami
         images_dir = os.path.join(os.path.dirname(__file__), '../data/images')
         
-        # Kontrola existencie priečinka
         if not os.path.exists(images_dir):
             return jsonify({"images": {}}), 200
         
-        # Nájdenie najnovších obrázkov pre každé zariadenie
         device_images = {}
         image_files = [f for f in os.listdir(images_dir) if f.endswith('.jpg')]
         
         for image_file in image_files:
-            # Názov zariadenia je na začiatku súboru pred podtržníkom
             parts = image_file.split('_')
             if len(parts) < 2:
                 continue
                 
             device_id = parts[0]
             
-            # Získanie času vytvorenia súboru
             image_path = os.path.join(images_dir, image_file)
             timestamp = os.path.getmtime(image_path)
             
-            # Ak zariadenie ešte nemá obrázok alebo je tento novší
             if device_id not in device_images or timestamp > device_images[device_id]['timestamp']:
                 device_images[device_id] = {
                     'path': image_path,

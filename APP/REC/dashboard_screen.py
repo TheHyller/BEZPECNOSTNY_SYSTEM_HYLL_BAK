@@ -23,9 +23,8 @@ class PinInputDialog(MDBoxLayout):
         self.spacing = "12dp"
         self.padding = "24dp"
         self.size_hint_y = None
-        self.height = "400dp"  # Zväčšená výška pre umiestnenie klávesnice
+        self.height = "400dp"
         
-        # Text pole pre zadanie PIN kódu
         self.pin_input = MDTextField(
             hint_text="Zadajte PIN kód",
             password=True,
@@ -33,15 +32,13 @@ class PinInputDialog(MDBoxLayout):
             helper_text_mode="persistent",
             size_hint_y=None,
             height="48dp",
-            readonly=True  # Nastavené na True, aby sa nezobrazovala softvérová klávesnica
+            readonly=True
         )
         self.add_widget(self.pin_input)
         
-        # Pridanie medzery
         spacer = MDBoxLayout(size_hint_y=None, height="24dp")
         self.add_widget(spacer)
         
-        # Numerická klávesnica
         numpad = GridLayout(
             cols=3,
             spacing="12dp",
@@ -49,7 +46,6 @@ class PinInputDialog(MDBoxLayout):
             height="240dp"
         )
         
-        # Vytvorenie tlačidiel 1-9
         for i in range(1, 10):
             btn = MDRaisedButton(
                 text=str(i),
@@ -59,7 +55,6 @@ class PinInputDialog(MDBoxLayout):
             btn.bind(on_release=lambda x, num=i: self.on_numpad_press(num))
             numpad.add_widget(btn)
         
-        # Tlačidlo Vymazať (C)
         clear_btn = MDRaisedButton(
             text="C",
             size_hint=(1, 1),
@@ -69,7 +64,6 @@ class PinInputDialog(MDBoxLayout):
         clear_btn.bind(on_release=lambda x: self.on_clear_press())
         numpad.add_widget(clear_btn)
         
-        # Tlačidlo 0
         zero_btn = MDRaisedButton(
             text="0",
             size_hint=(1, 1),
@@ -78,7 +72,6 @@ class PinInputDialog(MDBoxLayout):
         zero_btn.bind(on_release=lambda x: self.on_numpad_press(0))
         numpad.add_widget(zero_btn)
         
-        # Prázdne tlačidlo (alebo alternatívne Backspace)
         back_btn = MDRaisedButton(
             text="←",
             size_hint=(1, 1),
@@ -92,10 +85,8 @@ class PinInputDialog(MDBoxLayout):
     
     def on_numpad_press(self, number):
         """Spracovanie stlačenia čísla na numerickej klávesnici."""
-        # Ochrana proti dvojitému stlačeniu - kontrola času od posledného stlačenia
         current_time = time.time()
         if hasattr(self, 'last_press_time'):
-            # Ak uplynulo menej ako 300ms, ignorujeme stlačenie
             if current_time - self.last_press_time < 0.3:
                 return
         
@@ -113,26 +104,22 @@ class PinInputDialog(MDBoxLayout):
         self.pin_input.text = self.pin_input.text[:-1]
 
 class DashboardScreen(MDScreen):
-    # Vlastnosti pre sledovanie stavu systému
     system_armed = BooleanProperty(False)
     alarm_active = BooleanProperty(False)
-    armed_mode = StringProperty("disarmed")  # 'disarmed', 'armed_home', 'armed_away'
+    armed_mode = StringProperty("disarmed")
     status_text = StringProperty("")
     last_update = ObjectProperty(None)
     
-    # Počty zariadení
     device_count = StringProperty("0")
-    online_device_count = StringProperty("0")  # Pridaný chýbajúci property
-    sensors_triggered = StringProperty("0")    # Pridaný chýbajúci property
+    online_device_count = StringProperty("0")
+    sensors_triggered = StringProperty("0")
     
-    # Dialóg pre zadanie PIN kódu
     pin_dialog = None
-    current_action = None  # 'arm_home', 'arm_away', 'disarm', 'stop_alarm'
+    current_action = None
     
     def on_pre_enter(self):
         """Aktualizácia stavu pri otvorení obrazovky."""
         self.update_from_state()
-        # Nastavenie pravidelnej aktualizácie každú sekundu
         if not hasattr(self, '_poll_event'):
             self._poll_event = Clock.schedule_interval(lambda dt: self.update_from_state(), 1)
 
@@ -140,17 +127,14 @@ class DashboardScreen(MDScreen):
         """Aktualizuje UI podľa aktuálneho stavu systému."""
         state = load_state()
         
-        # Kontrola stavu zabezpečenia
         self.armed_mode = state.get('armed_mode', 'disarmed')
         self.system_armed = self.armed_mode != 'disarmed'
         self.alarm_active = state.get('alarm_active', False)
         alarm_countdown_active = state.get('alarm_countdown_active', False)
         self.last_update = time.strftime("%H:%M:%S", time.localtime())
         
-        # Automaticky zatvoriť PIN dialóg, ak už nie je potrebný (napr. pri deaktivácii z iného rozhrania)
         if hasattr(self, 'pin_dialog') and self.pin_dialog:
             if self.current_action == "stop_alarm" and not self.alarm_active:
-                # Zatvoriť dialóg iba ak nie je ani alarm ani odpočítavanie aktívne
                 if not alarm_countdown_active:
                     self.pin_dialog.dismiss()
                     self.pin_dialog = None
@@ -158,7 +142,6 @@ class DashboardScreen(MDScreen):
                 self.pin_dialog.dismiss()
                 self.pin_dialog = None
         
-        # Nastavenie textu stavu
         if self.alarm_active:
             self.status_text = "ALARM AKTÍVNY! Narušenie detekované!"
         elif alarm_countdown_active:
@@ -171,48 +154,39 @@ class DashboardScreen(MDScreen):
         else:
             self.status_text = "Systém nezabezpečený"
         
-        # Aktualizácia štatistík zariadení
         try:
             devices = load_devices()
             
-            # Načítanie stavu zariadení
             device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
             if os.path.exists(device_status_path):
                 with open(device_status_path, 'r', encoding='utf-8') as f:
                     device_status = json.load(f)
             
-            # Aktualizácia UI
             self.device_count = str(len(devices))
             
         except Exception as e:
             print(f"Chyba pri aktualizácii štatistík zariadení: {e}")
         
-        # Aktualizácia tlačidiel
         self.update_button_states()
 
     def update_button_states(self):
         """Aktualizuje stav tlačidiel na základe aktuálneho stavu systému."""
         if hasattr(self.ids, 'arm_home_btn'):
-            # Tlačidlo režimu Doma nemožno použiť, ak je systém už v akomkoľvek režime zabezpečenia
             self.ids.arm_home_btn.disabled = self.system_armed or self.alarm_active
             
         if hasattr(self.ids, 'arm_away_btn'):
-            # Tlačidlo režimu Preč nemožno použiť, ak je systém už v akomkoľvek režime zabezpečenia
             self.ids.arm_away_btn.disabled = self.system_armed or self.alarm_active
             
         if hasattr(self.ids, 'disarm_btn'):
-            # Tlačidlo deaktivácie je aktívne iba ak je systém zabezpečený
             self.ids.disarm_btn.disabled = not self.system_armed
             
         if hasattr(self.ids, 'alarm_stop_btn'):
-            # Tlačidlo zastavenia alarmu je aktívne iba ak je spustený alarm
             self.ids.alarm_stop_btn.disabled = not self.alarm_active
 
     def show_pin_dialog(self, action):
         """Zobrazí dialóg pre zadanie PIN kódu."""
         self.current_action = action
         
-        # Vytvorenie obsahu dialógu
         content = PinInputDialog()
         
         cancel_btn = MDFlatButton(
@@ -225,7 +199,6 @@ class DashboardScreen(MDScreen):
             on_release=lambda x: self.verify_pin(content.pin_input.text)
         )
         
-        # Vytvorenie a zobrazenie dialógu
         self.pin_dialog = MDDialog(
             title="Overiť PIN kód" if action in ["arm_home", "arm_away"] else "Zadajte PIN kód",
             type="custom",
@@ -237,15 +210,12 @@ class DashboardScreen(MDScreen):
     def verify_pin(self, pin):
         """Overí zadaný PIN kód a vykoná požadovanú akciu."""
         if not pin:
-            # Prázdny PIN
             return
             
-        # Načítanie nastavení a správneho PIN kódu
         settings = load_settings()
         correct_pin = settings.get("security_pin", "1234")
         
         if pin == correct_pin:
-            # PIN je správny, vykonanie akcie
             self.pin_dialog.dismiss()
             
             if self.current_action == "arm_home":
@@ -257,7 +227,6 @@ class DashboardScreen(MDScreen):
             elif self.current_action == "stop_alarm":
                 self._stop_alarm()
         else:
-            # Nesprávny PIN
             content = self.pin_dialog.content_cls
             content.pin_input.error = True
             content.pin_input.helper_text = "Nesprávny PIN kód"
@@ -269,11 +238,9 @@ class DashboardScreen(MDScreen):
     
     def _arm_system_home(self):
         """Aktivuje systém v režime Doma (ignoruje pohybové senzory)."""
-        # Nastavenie režimu zabezpečenia
         update_state({"armed_mode": "armed_home", "alarm_active": False})
         ns.send_notification("Systém zabezpečený v režime Doma")
         
-        # Aktualizácia UI
         self.update_from_state()
 
     def arm_system_away(self):
@@ -282,11 +249,9 @@ class DashboardScreen(MDScreen):
     
     def _arm_system_away(self):
         """Aktivuje systém v režime Preč (všetky senzory aktívne)."""
-        # Nastavenie režimu zabezpečenia
         update_state({"armed_mode": "armed_away", "alarm_active": False})
         ns.send_notification("Systém zabezpečený v režime Preč")
         
-        # Aktualizácia UI
         self.update_from_state()
 
     def disarm_system(self):
@@ -295,11 +260,9 @@ class DashboardScreen(MDScreen):
     
     def _disarm_system(self):
         """Deaktivuje zabezpečenie systému."""
-        # Nastavenie režimu zabezpečenia
         update_state({"armed_mode": "disarmed"})
         ns.send_notification("Systém bol deaktivovaný")
         
-        # Aktualizácia UI
         self.update_from_state()
 
     def stop_alarm(self):
@@ -309,12 +272,10 @@ class DashboardScreen(MDScreen):
     def _stop_alarm(self):
         """Zastaví aktívny alarm a deaktivuje zabezpečenie systému."""
         if self.alarm_active:
-            # Zastavenie alarmu a deaktivácia systému
             ns.stop_alarm()
             update_state({"armed_mode": "disarmed"})
             ns.send_notification("Alarm bol zastavený a systém deaktivovaný")
             
-            # Aktualizácia UI
             self.update_from_state()
 
     def update_sensor_status(self):

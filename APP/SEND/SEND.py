@@ -36,7 +36,7 @@ MQTT_DISCOVERY_TIMEOUT = 30  # sekundy
 # Premenné pre MQTT
 mqtt_client = None
 mqtt_connected = False
-mqtt_broker = DEFAULT_MQTT_BROKER  # Táto hodnota môže byť nahradená pri automatickom zisťovaní
+mqtt_broker = DEFAULT_MQTT_BROKER
 
 # Časovač pre zachytenie fotografie
 last_photo_time = 0
@@ -56,10 +56,10 @@ SENSOR_LABELS = {
 }
 
 # Intervaly (v sekundách)
-STATUS_INTERVAL = 30    # 30 sekúnd interval pre odoslanie všetkých stavov
-DEBOUNCE_TIME = 0.1     # 100ms debounce pre senzory
-MQTT_RECONNECT_INTERVAL = 5  # 5 sekúnd interval pre opätovné pripojenie k MQTT
-DISCOVERY_RETRY_INTERVAL = 60  # 60 sekúnd interval pre opätovný pokus o zistenie brokera
+STATUS_INTERVAL = 30
+DEBOUNCE_TIME = 0.1
+MQTT_RECONNECT_INTERVAL = 5
+DISCOVERY_RETRY_INTERVAL = 60
 
 # Časovače poslednej zmeny
 last_motion_time = 0
@@ -90,16 +90,13 @@ def load_config():
             with open(config_path, 'r') as file:
                 config = json.load(file)
                 
-                # Nastavenia MQTT
                 if 'mqtt' in config:
                     mqtt_config = config['mqtt']
-                    # Načítame predvolenú hodnotu, ale použijeme ju iba ak sa nenájde broker automaticky
                     DEFAULT_MQTT_BROKER = mqtt_config.get('broker', DEFAULT_MQTT_BROKER)
                     MQTT_PORT = mqtt_config.get('port', MQTT_PORT)
                     MQTT_USERNAME = mqtt_config.get('username', MQTT_USERNAME)
                     MQTT_PASSWORD = mqtt_config.get('password', MQTT_PASSWORD)
                 
-                # Nastavenia kamery
                 if 'camera' in config:
                     camera_config = config['camera']
                     width = camera_config.get('resolution_width', camera_resolution[0])
@@ -120,40 +117,32 @@ def find_mqtt_broker():
     print("Hľadám MQTT broker na sieti...")
     last_discovery_attempt = time.time()
     
-    # Vytvorenie UDP socketu pre odoslanie a príjem discovery správ
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(MQTT_DISCOVERY_TIMEOUT)
     
     try:
-        # Príprava broadcast discovery správy
         discovery_message = json.dumps({
             "type": "mqtt_discovery_request",
             "device_id": DEVICE_ID,
             "device_name": DEVICE_NAME
         }).encode('utf-8')
         
-        # Odoslanie broadcast správy
-        broadcast_address = "255.255.255.255"  # UDP broadcast adresa
+        broadcast_address = "255.255.255.255"
         print(f"Odosielam broadcast discovery požiadavku na {broadcast_address}:{MQTT_DISCOVERY_PORT}")
         sock.sendto(discovery_message, (broadcast_address, MQTT_DISCOVERY_PORT))
         
-        # Nastavenie timeoutu pre čakanie na odpoveď - 10 sekúnd
         start_time = time.time()
         discovery_timeout = 10
         
-        # Čakanie na odpoveď so slučkou, ktorá skúša viackrát počas timeoutu
         while time.time() - start_time < discovery_timeout:
             try:
-                # Skúsime prijať odpoveď
                 data, addr = sock.recvfrom(1024)
                 print(f"Prijatá odpoveď od {addr}")
                 
-                # Parsovanie JSON správy
                 message = json.loads(data.decode("utf-8"))
                 
-                # Kontrola či ide o správny typ správy
                 if message.get("type") == "mqtt_discovery" or message.get("type") == "mqtt_discovery_response":
                     discovered_broker = message.get("broker_ip")
                     discovered_port = message.get("broker_port", MQTT_PORT)
@@ -161,11 +150,9 @@ def find_mqtt_broker():
                     if discovered_broker:
                         print(f"Nájdený MQTT broker: {discovered_broker}:{discovered_port}")
                         
-                        # Aktualizácia globálnych premenných
                         mqtt_broker = discovered_broker
                         MQTT_PORT = discovered_port
                         
-                        # Blikanie LED pre vizuálnu indikáciu úspešného objavenia
                         for _ in range(3):
                             GPIO.output(LED_PIN, GPIO.HIGH)
                             time.sleep(0.1)
@@ -174,7 +161,6 @@ def find_mqtt_broker():
                             
                         return True
             except socket.timeout:
-                # Timeout pri čakaní na dáta
                 continue
             except json.JSONDecodeError as e:
                 print(f"Prijatá neplatná JSON odpoveď: {e}")
@@ -183,7 +169,6 @@ def find_mqtt_broker():
                 print(f"Chyba pri spracovaní odpovede: {e}")
                 continue
                 
-            # Krátka pauza pred ďalším pokusom
             time.sleep(0.1)
             
     except socket.error as e:
@@ -193,11 +178,9 @@ def find_mqtt_broker():
     finally:
         sock.close()
         
-    # Ak sa nepodarilo nájsť broker, použijeme predvolenú hodnotu
     print(f"Použijem predvolenú adresu MQTT brokera: {DEFAULT_MQTT_BROKER}")
     mqtt_broker = DEFAULT_MQTT_BROKER
     
-    # Indikácia zlyhaného vyhľadávania pomocou LED
     GPIO.output(LED_PIN, GPIO.HIGH)
     time.sleep(0.5)
     GPIO.output(LED_PIN, GPIO.LOW)
@@ -209,16 +192,13 @@ def setup_gpio():
     GPIO.setmode(GPIO.BCM)
     GPIO.setwarnings(False)
     
-    # Nastavenie vstupov pre senzory s internými pull-up rezistormi
     GPIO.setup(MOTION_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(DOOR_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     GPIO.setup(WINDOW_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     
-    # Nastavenie výstupu pre LED
     GPIO.setup(LED_PIN, GPIO.OUT)
     GPIO.output(LED_PIN, GPIO.LOW)
     
-    # Nastavenie callbackov pre edge detekciu
     GPIO.add_event_detect(MOTION_PIN, GPIO.BOTH, callback=motion_callback, bouncetime=200)
     GPIO.add_event_detect(DOOR_PIN, GPIO.BOTH, callback=door_callback, bouncetime=200)
     GPIO.add_event_detect(WINDOW_PIN, GPIO.BOTH, callback=window_callback, bouncetime=200)
@@ -228,16 +208,12 @@ def setup_camera():
     global camera
     
     try:
-        # Using subprocess to call libcamera directly since the Python bindings can be limited
-        # First check if libcamera-still is available
         subprocess.run(["libcamera-still", "--help"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
         print(f"Kamera inicializovaná - rozlíšenie: {camera_resolution}, rotácia: {camera_rotation}°")
         
-        # No need to warm up camera with libcamera-still approach, but we'll keep the print for consistency
         print(f"Zahriatie kamery ({camera_warmup_time}s)...")
         time.sleep(camera_warmup_time)
         
-        # Store resolution for later use
         camera = {"resolution": camera_resolution, "rotation": camera_rotation}
         
     except Exception as e:
@@ -252,13 +228,10 @@ def on_mqtt_connect(client, userdata, flags, rc):
         mqtt_connected = True
         print(f"Pripojený k MQTT brokeru ({mqtt_broker}:{MQTT_PORT})")
         
-        # Prihlásenie na odber riadiacich správ
         client.subscribe(MQTT_TOPIC_CONTROL, qos=MQTT_QOS)
         
-        # Publikovanie ONLINE statusu
         publish_mqtt_status("ONLINE")
         
-        # Blikanie LED pre indikáciu úspešného pripojenia
         for _ in range(3):
             GPIO.output(LED_PIN, GPIO.HIGH)
             time.sleep(0.1)
@@ -299,27 +272,21 @@ def handle_control_message(payload):
     command = payload.get('command')
     
     if command == 'status':
-        # Odoslanie stavových údajov na vyžiadanie
         send_all_sensors_status()
     elif command == 'capture':
-        # Zachytenie a odoslanie snímku z kamery
         threading.Thread(target=capture_and_send_image).start()
     elif command == 'restart':
         print("Prijatý príkaz na reštart programu")
-        # Tu by mohol byť kód pre reštart programu
     elif command == 'identify':
         print("Zariadenie identifikované")
-        # Blikanie LED pre identifikáciu
         for _ in range(10):
             GPIO.output(LED_PIN, GPIO.HIGH)
             time.sleep(0.2)
             GPIO.output(LED_PIN, GPIO.LOW)
             time.sleep(0.2)
     elif command == 'discover':
-        # Príkaz na vyhľadanie MQTT brokera
         print("Prijatý príkaz na vyhľadanie MQTT brokera")
         if find_mqtt_broker():
-            # Ak sa broker zmenil, odpojíme sa a znova nastavíme pripojenie
             if mqtt_client:
                 mqtt_client.disconnect()
                 setup_mqtt()
@@ -328,14 +295,11 @@ def setup_mqtt():
     """Nastavenie a spustenie MQTT klienta."""
     global mqtt_client
     
-    # Vytvorenie klienta
     mqtt_client = mqtt.Client(client_id=MQTT_CLIENT_ID, clean_session=True)
     
-    # Nastavenie prihlasovacích údajov ak sú poskytnuté
     if MQTT_USERNAME and MQTT_PASSWORD:
         mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     
-    # Nastavenie Last Will and Testament (LWT)
     lwt_payload = json.dumps({
         "status": "OFFLINE",
         "device_id": DEVICE_ID,
@@ -345,15 +309,12 @@ def setup_mqtt():
     })
     mqtt_client.will_set(MQTT_TOPIC_STATUS, lwt_payload, qos=MQTT_QOS, retain=True)
     
-    # Nastavenie callback funkcií
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.on_disconnect = on_mqtt_disconnect
     mqtt_client.on_message = on_mqtt_message
     
-    # Spustenie vlákna pre MQTT
     mqtt_client.loop_start()
     
-    # Pokus o pripojenie
     try_mqtt_connect()
 
 def try_mqtt_connect():
@@ -371,12 +332,10 @@ def try_mqtt_connect():
         print(f"Broker odmietol pripojenie: {e}")
         print("Skontrolujte, či je Mosquitto broker spustený pomocou príkazu 'services.msc' (Windows) alebo 'sudo systemctl status mosquitto' (Linux)")
         print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
-        # Nastavenie časovača pre opätovný pokus
         threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
     except Exception as e:
         print(f"Chyba pri pripájaní k MQTT brokeru: {e}")
         print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
-        # Nastavenie časovača pre opätovný pokus
         threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
 
 def mqtt_monitor():
@@ -384,23 +343,17 @@ def mqtt_monitor():
     global mqtt_connected, mqtt_broker, last_discovery_attempt
     
     while True:
-        # Ak nie sme pripojení k MQTT brokeru
         if not mqtt_connected and mqtt_client is not None:
             current_time = time.time()
             
-            # Ak uplynul čas od posledného pokusu o automatické zistenie brokera,
-            # skúsime ho znova nájsť
             if current_time - last_discovery_attempt > DISCOVERY_RETRY_INTERVAL:
                 print("Znova sa pokúšam nájsť MQTT broker...")
                 if find_mqtt_broker():
-                    # Ak sa broker zmenil, odpojíme sa a znova nastavíme pripojenie
                     mqtt_client.disconnect()
                     setup_mqtt()
                 else:
-                    # Ak sa nezmenil, skúsime sa znova pripojiť
                     try_mqtt_connect()
             else:
-                # Skúšame sa pripojiť na aktuálny broker
                 print("MQTT pripojenie nie je aktívne, pokúšam sa znovu pripojiť...")
                 try_mqtt_connect()
             
@@ -421,11 +374,9 @@ def publish_mqtt_status(status, message=None):
             "timestamp": time.time()
         }
         
-        # Pridanie správy ak bola poskytnutá
         if message:
             payload["message"] = message
             
-        # Publikovanie na status topic
         result = mqtt_client.publish(
             MQTT_TOPIC_STATUS, 
             json.dumps(payload), 
@@ -433,7 +384,6 @@ def publish_mqtt_status(status, message=None):
             retain=True
         )
         
-        # Kontrola úspešného odoslania
         if result.rc == mqtt.MQTT_ERR_SUCCESS:
             print(f"Status publikovaný: {status}" + (f" - {message}" if message else ""))
             return True
@@ -451,19 +401,16 @@ def motion_callback(channel):
     current_time = time.time()
     if current_time - last_motion_time > DEBOUNCE_TIME:
         last_motion_time = current_time
-        current_state = GPIO.input(MOTION_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
+        current_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
         
         if current_state != last_motion_state:
             last_motion_state = current_state
             publish_sensor_status("motion", current_state)
             
-            # Zapneme LED na okamih ak bol detekovaný pohyb
             if current_state:
                 GPIO.output(LED_PIN, GPIO.HIGH)
                 threading.Timer(0.5, lambda: GPIO.output(LED_PIN, GPIO.LOW)).start()
                 
-                # Automaticky zachytiť a odoslať snímku pri detekcii pohybu,
-                # ale iba ak uplynula doba cooldownu od poslednej fotografie
                 if current_time - last_photo_time > PHOTO_COOLDOWN:
                     last_photo_time = current_time
                     print(f"Pohyb detegovaný - zachytávam snímku (cooldown: {PHOTO_COOLDOWN}s)...")
@@ -478,7 +425,7 @@ def door_callback(channel):
     current_time = time.time()
     if current_time - last_door_time > DEBOUNCE_TIME:
         last_door_time = current_time
-        current_state = GPIO.input(DOOR_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
+        current_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
         
         if current_state != last_door_state:
             last_door_state = current_state
@@ -491,7 +438,7 @@ def window_callback(channel):
     current_time = time.time()
     if current_time - last_window_time > DEBOUNCE_TIME:
         last_window_time = current_time
-        current_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH  # Invertovaná logika - teraz HIGH znamená aktivovaný
+        current_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
         
         if current_state != last_window_state:
             last_window_state = current_state
@@ -503,19 +450,17 @@ def publish_sensor_status(sensor_type, state):
         return False
     
     try:
-        # Convert boolean state to expected string formats
         state_value = ""
         if sensor_type == "motion":
             state_value = "DETECTED" if state else "IDLE"
         elif sensor_type in ["door", "window"]:
             state_value = "OPEN" if state else "CLOSED"
         
-        # Create payload with correct format
         payload = {
             "device_id": DEVICE_ID,
             "device_name": DEVICE_NAME,
             "room": DEVICE_NAME,
-            sensor_type: state_value,  # Use sensor_type as key with state_value string
+            sensor_type: state_value,
             "timestamp": time.time()
         }
         
@@ -537,12 +482,10 @@ def publish_sensor_status(sensor_type, state):
 
 def send_all_sensors_status():
     """Odošle aktuálny stav všetkých senzorov."""
-    # Čítanie aktuálneho stavu senzorov s inverznou logikou - HIGH znamená aktivovaný senzor
     motion_state = GPIO.input(MOTION_PIN) == GPIO.HIGH
     door_state = GPIO.input(DOOR_PIN) == GPIO.HIGH
     window_state = GPIO.input(WINDOW_PIN) == GPIO.HIGH
     
-    # Publikovanie stavu každého senzora
     publish_sensor_status("motion", motion_state)
     publish_sensor_status("door", door_state)
     publish_sensor_status("window", window_state)
@@ -554,17 +497,13 @@ def capture_and_send_image():
         return
     
     try:
-        # Indikácia začiatku snímania LED
         GPIO.output(LED_PIN, GPIO.HIGH)
         
-        # Create temporary filename for the captured image
         temp_image_path = os.path.join(os.path.dirname(__file__), "temp_capture.jpg")
         
-        # Build the libcamera-still command
         width, height = camera["resolution"]
         rotation = camera["rotation"]
         
-        # Use libcamera-still to capture an image
         cmd = [
             "libcamera-still",
             "--width", str(width),
@@ -572,27 +511,22 @@ def capture_and_send_image():
             "--rotation", str(rotation),
             "--nopreview",
             "--output", temp_image_path,
-            "--immediate"  # Don't display a preview
+            "--immediate"
         ]
         
-        # Run the command
         print("Zachytávam snímku pomocou libcamera-still...")
         subprocess.run(cmd, check=True)
         
-        # Read the captured image
         with open(temp_image_path, "rb") as f:
             image_data = f.read()
             
-        # Clean up the temporary file
         try:
             os.remove(temp_image_path)
         except:
             pass
         
-        # Kódovanie obrázku do base64
         base64_data = base64.b64encode(image_data).decode('utf-8')
         
-        # Príprava payload s metadátami - upravený formát pre kompatibilitu s prijímačom
         payload = {
             "image_data": base64_data,
             "metadata": {
@@ -605,7 +539,6 @@ def capture_and_send_image():
             }
         }
         
-        # Publikovanie správy s obrázkom
         if mqtt_connected:
             print("Odosielam zachytený obrázok...")
             result = mqtt_client.publish(
@@ -622,14 +555,12 @@ def capture_and_send_image():
     except Exception as e:
         print(f"Chyba pri zachytávaní alebo odosielaní obrázku: {e}")
     finally:
-        # Vypnutie LED indikátora
         GPIO.output(LED_PIN, GPIO.LOW)
 
 def cleanup():
     """Vykoná čistiace operácie pred ukončením programu."""
     print("Čistenie zdrojov...")
     
-    # Ukončenie MQTT
     if mqtt_connected and mqtt_client is not None:
         try:
             publish_mqtt_status("OFFLINE", "Program ukončený")
@@ -638,13 +569,11 @@ def cleanup():
         except:
             pass
     
-    # Uvoľnenie GPIO
     try:
         GPIO.cleanup()
     except:
         pass
     
-    # Uvoľnenie kamery - PiCamera2 nemá metódu close(), stačí zastaviť kameru
     if camera is not None:
         try:
             if camera.started:
@@ -657,33 +586,24 @@ def main():
     print("=== PROGRAM PRE RASPBERRY PI - FYZICKÉ SENZORY A KAMERA ===")
     
     try:
-        # Načítanie konfigurácie
         load_config()
         
-        # Nastavenie GPIO - presunute hore pred find_mqtt_broker
         setup_gpio()
         
-        # Inicializácia kamery - presunute hore, aby bola kamera dostupna skorej
         setup_camera()
         
-        # Automatické vyhľadanie MQTT brokera
         find_mqtt_broker()
         
-        # Nastavenie MQTT po zistení brokera
         setup_mqtt()
         
-        # Spustenie vlákna monitorovania MQTT
         threading.Thread(target=mqtt_monitor, daemon=True, name="MQTTMonitorThread").start()
         
-        # Čítanie počiatočného stavu senzorov
         last_motion_state = GPIO.input(MOTION_PIN) == GPIO.LOW
         last_door_state = GPIO.input(DOOR_PIN) == GPIO.LOW
         last_window_state = GPIO.input(WINDOW_PIN) == GPIO.LOW
         
-        # Odoslanie počiatočného stavu
         publish_mqtt_status("ONLINE", "Program spustený")
         
-        # Nekonečná slučka pre udržanie programu v behu
         print("Program beží. Stlačte Ctrl+C pre ukončenie.")
         while True:
             time.sleep(1)

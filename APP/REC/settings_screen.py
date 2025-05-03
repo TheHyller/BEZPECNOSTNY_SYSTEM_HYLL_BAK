@@ -40,9 +40,8 @@ class SettingsScreen(MDScreen):
         self.email_recipient = email_settings.get("recipient", "")
     
     def save_settings_to_file(self):
-        settings = load_settings()  # Načítanie existujúcich nastavení
+        settings = load_settings()
         
-        # Aktualizácia nastavení
         settings["pin_code"] = self.pin_code
         
         if "notification_preferences" not in settings:
@@ -59,7 +58,6 @@ class SettingsScreen(MDScreen):
         settings["email_settings"]["password"] = self.email_password
         settings["email_settings"]["recipient"] = self.email_recipient
         
-        # Uloženie nastavení
         save_settings(settings)
     
     def on_sound_notifications(self, instance, value):

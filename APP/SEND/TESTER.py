@@ -31,9 +31,9 @@ MQTT_DISCOVERY_TIMEOUT = 30  # sekundy
 # Premenné pre MQTT
 mqtt_client = None
 mqtt_connected = False
-mqtt_broker = DEFAULT_MQTT_BROKER  # Táto hodnota môže byť nahradená pri automatickom zisťovaní
+mqtt_broker = DEFAULT_MQTT_BROKER
 last_discovery_attempt = 0
-DISCOVERY_RETRY_INTERVAL = 60  # 60 sekúnd interval pre opätovný pokus o zistenie brokera
+DISCOVERY_RETRY_INTERVAL = 60  # sekúnd
 
 # Typy senzorov na testovanie
 SENSOR_TYPES = ["motion", "door", "window"]
@@ -46,8 +46,8 @@ SENSOR_LABELS = {
 }
 
 # Intervaly pre simuláciu (v sekundách)
-STATUS_INTERVAL = 5     # 5 sekúnd interval medzi simuláciami stavov senzorov
-MQTT_RECONNECT_INTERVAL = 5  # 5 sekúnd interval pre opätovné pripojenie k MQTT
+STATUS_INTERVAL = 5
+MQTT_RECONNECT_INTERVAL = 5
 
 def load_config():
     """Načíta konfiguráciu zo súboru config.json ak existuje."""
@@ -59,10 +59,8 @@ def load_config():
             with open(config_path, 'r') as file:
                 config = json.load(file)
                 
-                # Nastavenia MQTT
                 if 'mqtt' in config:
                     mqtt_config = config['mqtt']
-                    # Načítame predvolenú hodnotu, ale použijeme ju iba ak sa nenájde broker automaticky
                     DEFAULT_MQTT_BROKER = mqtt_config.get('broker', DEFAULT_MQTT_BROKER)
                     MQTT_PORT = mqtt_config.get('port', MQTT_PORT)
                     MQTT_USERNAME = mqtt_config.get('username', MQTT_USERNAME)
@@ -79,34 +77,28 @@ def find_mqtt_broker():
     print("Hľadám MQTT broker na sieti...")
     last_discovery_attempt = time.time()
     
-    # Vytvorenie UDP socketu pre odoslanie a príjem discovery správ
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(MQTT_DISCOVERY_TIMEOUT)
     
     try:
-        # Príprava broadcast discovery správy
         discovery_message = json.dumps({
             "type": "mqtt_discovery_request",
             "device_id": DEVICE_ID,
             "device_name": DEVICE_NAME
         }).encode('utf-8')
         
-        # Odoslanie broadcast správy
-        broadcast_address = "255.255.255.255"  # UDP broadcast adresa
+        broadcast_address = "255.255.255.255"
         print(f"Odosielam broadcast discovery požiadavku na {broadcast_address}:{MQTT_DISCOVERY_PORT}")
         sock.sendto(discovery_message, (broadcast_address, MQTT_DISCOVERY_PORT))
         
-        # Binding na discovery port pre príjem odpovede
         sock.bind(("", MQTT_DISCOVERY_PORT))
         print(f"Čakám na MQTT discovery odpoveď ({MQTT_DISCOVERY_TIMEOUT}s)...")
         
-        # Čakanie na odpoveď
         data, addr = sock.recvfrom(1024)
         print(f"Prijatá odpoveď od {addr}")
         
-        # Parsovanie JSON správy
         message = json.loads(data.decode("utf-8"))
         
         if message.get("type") == "mqtt_discovery" or message.get("type") == "mqtt_discovery_response":
@@ -115,7 +107,6 @@ def find_mqtt_broker():
             
             print(f"Nájdený MQTT broker: {discovered_broker}:{discovered_port}")
             
-            # Aktualizácia globálnych premenných
             mqtt_broker = discovered_broker
             MQTT_PORT = discovered_port
             
@@ -128,7 +119,6 @@ def find_mqtt_broker():
     finally:
         sock.close()
         
-    # Ak sa nepodarilo nájsť broker, použijeme predvolenú hodnotu
     print(f"Použijem predvolenú adresu MQTT brokera: {DEFAULT_MQTT_BROKER}")
     mqtt_broker = DEFAULT_MQTT_BROKER
     return False
@@ -141,10 +131,8 @@ def on_mqtt_connect(client, userdata, flags, rc):
         mqtt_connected = True
         print(f"Pripojený k MQTT brokeru ({mqtt_broker}:{MQTT_PORT})")
         
-        # Prihlásenie na odber riadiacich správ
         client.subscribe(MQTT_TOPIC_CONTROL, qos=MQTT_QOS)
         
-        # Publikovanie ONLINE statusu
         publish_mqtt_status("ONLINE", "Testovací program spustený")
         
     else:
@@ -180,27 +168,21 @@ def handle_control_message(payload):
     command = payload.get('command')
     
     if command == 'status':
-        # Odoslanie stavových údajov na vyžiadanie
         send_all_sensors_status()
     elif command == 'restart':
         print("Prijatý príkaz na reštart programu")
-        # Tu by mohol byť kód pre reštart programu
     elif command == 'identify':
         print("Zariadenie identifikované")
-        # Tu by mohol byť kód pre blikanie LED alebo inú formu fyzickej identifikácie
 
 def setup_mqtt():
     """Nastavenie a spustenie MQTT klienta."""
     global mqtt_client
     
-    # Vytvorenie klienta
     mqtt_client = mqtt.Client(client_id=MQTT_CLIENT_ID, clean_session=True)
     
-    # Nastavenie prihlasovacích údajov ak sú poskytnuté
     if MQTT_USERNAME and MQTT_PASSWORD:
         mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
     
-    # Nastavenie Last Will and Testament (LWT)
     lwt_payload = json.dumps({
         "status": "OFFLINE",
         "device_id": DEVICE_ID,
@@ -209,15 +191,12 @@ def setup_mqtt():
     })
     mqtt_client.will_set(MQTT_TOPIC_STATUS, lwt_payload, qos=MQTT_QOS, retain=True)
     
-    # Nastavenie callback funkcií
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.on_disconnect = on_mqtt_disconnect
     mqtt_client.on_message = on_mqtt_message
     
-    # Spustenie vlákna pre MQTT
     mqtt_client.loop_start()
     
-    # Pokus o pripojenie
     try_mqtt_connect()
 
 def try_mqtt_connect():
@@ -235,12 +214,10 @@ def try_mqtt_connect():
         print(f"Broker odmietol pripojenie: {e}")
         print("Skontrolujte, či je Mosquitto broker spustený pomocou príkazu 'services.msc' (Windows) alebo 'sudo systemctl status mosquitto' (Linux)")
         print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
-        # Nastavenie časovača pre opätovný pokus
         threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
     except Exception as e:
         print(f"Chyba pri pripájaní k MQTT brokeru: {e}")
         print(f"Ďalší pokus o pripojenie za {MQTT_RECONNECT_INTERVAL} sekúnd...")
-        # Nastavenie časovača pre opätovný pokus
         threading.Timer(MQTT_RECONNECT_INTERVAL, try_mqtt_connect).start()
 
 def publish_mqtt_status(status, message=""):
@@ -298,15 +275,12 @@ def publish_mqtt_image(image_path, trigger_type="motion"):
         return False
         
     try:
-        # Načítanie súboru obrázka
         with open(image_path, "rb") as f:
             image_data = f.read()
             
-        # Konverzia na Base64 pre JSON
         import base64
         image_base64 = base64.b64encode(image_data).decode('utf-8')
         
-        # Vytvorenie payloadu
         payload = {
             "image_data": image_base64,
             "metadata": {
@@ -319,7 +293,6 @@ def publish_mqtt_image(image_path, trigger_type="motion"):
             }
         }
         
-        # Publikovanie
         mqtt_client.publish(MQTT_TOPIC_IMAGE, json.dumps(payload), qos=MQTT_QOS)
         print("Obrázok publikovaný cez MQTT")
         return True
@@ -329,7 +302,6 @@ def publish_mqtt_image(image_path, trigger_type="motion"):
 
 def send_all_sensors_status():
     """Odošle stav všetkých senzorov."""
-    # Generujeme náhodné stavy pre všetky senzory
     status = {
         "motion": "DETECTED" if random.random() < 0.3 else "IDLE",
         "door": "OPEN" if random.random() < 0.2 else "CLOSED",
@@ -340,7 +312,6 @@ def send_all_sensors_status():
         "timestamp": time.time()
     }
     
-    # Publikovanie cez MQTT
     if mqtt_connected and mqtt_client is not None:
         try:
             mqtt_client.publish(MQTT_TOPIC_SENSOR, json.dumps(status), qos=MQTT_QOS)
@@ -352,10 +323,8 @@ def send_all_sensors_status():
 
 def send_status(sensor_type, status):
     """Odošle stav senzora."""
-    # Publikovanie cez MQTT
     success = publish_mqtt_sensor_data(sensor_type, status)
     
-    # Výpis výsledku
     if success:
         print(f"Odoslaný stav: {SENSOR_LABELS.get(sensor_type, sensor_type)} = {status}")
         return True
@@ -365,15 +334,12 @@ def send_status(sensor_type, status):
 
 def send_test_image():
     """Simulácia odoslania obrázka po detekcii pohybu."""
-    # Vytvorenie testovacieho obrázka (ak neexistuje)
     image_path = os.path.join(os.path.dirname(__file__), "test_image.jpg")
     
-    # Ak neexistuje testovací obrázok, vytvoríme jednoduchý textový súbor ako náhradu
     if not os.path.exists(image_path):
         with open(image_path, "w") as f:
             f.write("Toto je testovací súbor namiesto obrázka.")
     
-    # Odoslanie cez MQTT
     success = publish_mqtt_image(image_path)
     
     if success:
@@ -386,24 +352,17 @@ def simulate_sensors():
     print("Spúšťam simuláciu senzorov...")
     
     while True:
-        # Náhodný výber typu senzora
         sensor_type = random.choice(SENSOR_TYPES)
         
-        # Simulácia stavu
         if sensor_type == "motion":
-            # 30% šanca na detekciu pohybu
             status = "DETECTED" if random.random() < 0.3 else "IDLE" 
             if status == "DETECTED":
-                # Pri detekcii pohybu skúsime odoslať aj obrázok
                 threading.Thread(target=send_test_image).start()
         else:
-            # 20% šanca na otvorené dvere/okno
             status = "OPEN" if random.random() < 0.2 else "CLOSED"
         
-        # Odoslanie stavu
         send_status(sensor_type, status)
         
-        # Pauza pred ďalšou simuláciou
         time.sleep(STATUS_INTERVAL)
 
 def mqtt_monitor():
@@ -414,19 +373,14 @@ def mqtt_monitor():
         if not mqtt_connected and mqtt_client is not None:
             current_time = time.time()
             
-            # Ak uplynul čas od posledného pokusu o automatické zistenie brokera,
-            # skúsime ho znova nájsť
             if current_time - last_discovery_attempt > DISCOVERY_RETRY_INTERVAL:
                 print("Znova sa pokúšam nájsť MQTT broker...")
                 if find_mqtt_broker():
-                    # Ak sa broker zmenil, odpojíme sa a znova nastavíme pripojenie
                     mqtt_client.disconnect()
                     setup_mqtt()
                 else:
-                    # Ak sa nezmenil, skúsime sa znova pripojiť
                     try_mqtt_connect()
             else:
-                # Skúšame sa pripojiť na aktuálny broker
                 print("MQTT pripojenie nie je aktívne, pokúšam sa znovu pripojiť...")
                 try_mqtt_connect()
             
@@ -446,20 +400,15 @@ def main():
     """Hlavná funkcia programu."""
     print("=== TESTOVACÍ PROGRAM PRE RASPBERRY PI - SIMULÁCIA SENZOROV ===")
     
-    # Načítanie konfigurácie
     load_config()
     
-    # Automatické vyhľadanie MQTT brokera
     find_mqtt_broker()
     
-    # Nastavenie MQTT
     setup_mqtt()
     
-    # Spustenie vlákna monitorovania MQTT
     threading.Thread(target=mqtt_monitor, daemon=True, name="MQTTMonitorThread").start()
     
     try:
-        # Spustenie simulácie senzorov
         simulate_sensors()
     except KeyboardInterrupt:
         print("\nUkončujem testovanie...")

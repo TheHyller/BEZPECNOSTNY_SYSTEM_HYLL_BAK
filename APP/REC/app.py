@@ -212,7 +212,7 @@ def run_mqtt_broker():
     
     # Spustenie Mosquitto ako subprocess
     try:
-        # Použijeme parameter -c pre konfiguračný súbor a -v pre verbose výstup
+
         process = subprocess.Popen(
             [mosquitto_path, "-c", config_path, "-v"],
             stdout=subprocess.PIPE,

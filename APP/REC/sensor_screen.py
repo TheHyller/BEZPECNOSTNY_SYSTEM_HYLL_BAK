@@ -17,7 +17,6 @@ from collections import defaultdict
 from kivymd.uix.fitimage import FitImage
 
 class ImageCard(MDCard):
-    """Karta s obrázkom zo senzora/kamery pre galériu"""
     image_source = StringProperty("")
     device_name = StringProperty("")
     room_name = StringProperty("")
@@ -34,7 +33,6 @@ class ImageCard(MDCard):
         self.timestamp = timestamp
         self.callback = callback
         
-        # Formátovanie časovej značky
         if timestamp:
             try:
                 dt = datetime.fromtimestamp(timestamp)
@@ -49,7 +47,6 @@ class ImageCard(MDCard):
             self.callback(self.image_source, self.timestamp)
 
 class ImageViewerDialog(MDBoxLayout):
-    """Dialog pre zobrazenie obrázka zo senzora/kamery"""
     image_source = StringProperty("")
     timestamp_text = StringProperty("")
     is_fullscreen = BooleanProperty(False)
@@ -64,7 +61,6 @@ class ImageViewerDialog(MDBoxLayout):
         
         self.image_source = image_path
         
-        # Formátovanie časovej značky
         if timestamp:
             try:
                 dt = datetime.fromtimestamp(timestamp)
@@ -75,16 +71,13 @@ class ImageViewerDialog(MDBoxLayout):
             self.timestamp_text = "Neznámy čas zachytenia"
     
     def toggle_fullscreen(self):
-        """Prepínanie medzi normálnym a celoobrazovkovým zobrazením"""
         self.is_fullscreen = not self.is_fullscreen
         
         if self.is_fullscreen:
-            # Celoobrazovkový režim
-            self.height = "600dp"  # Zväčšenie výšky
-            self.padding = "0dp"   # Odstránenie odsadenia
-            self.spacing = "0dp"   # Odstránenie medzer
+            self.height = "600dp"
+            self.padding = "0dp"
+            self.spacing = "0dp"
         else:
-            # Normálny režim
             self.height = "400dp"
             self.padding = "12dp"
             self.spacing = "12dp"
@@ -103,31 +96,23 @@ class SensorScreen(MDScreen):
         if not hasattr(self, '_poll_event'):
             self._poll_event = Clock.schedule_interval(lambda dt: self.update_sensor_states(), 2)
         
-        # Initialize view mode - make sure view_mode is set and show the correct view
         Clock.schedule_once(lambda dt: self.initialize_view(), 0.1)
     
     def initialize_view(self):
-        """Initialize the view mode and segmented control"""
-        # Ensure the view manager is showing the current view
         if hasattr(self.ids, 'view_manager'):
             self.ids.view_manager.current = self.current_view
             
-        # Set the segmented control to match the current view
         if hasattr(self.ids, 'view_mode'):
-            # Set the initial active segment based on current_view
             index = 0 if self.current_view == "list" else 1
             try:
                 self.ids.view_mode.set_current(index)
             except:
                 print("Could not set initial segment in MDSegmentedControl")
         
-        # Update the current view content
         self.update_view()
     
     def on_segment_active(self, segmented_control, segment_item):
-        """Handle segmented control item activation safely"""
         try:
-            # Find which item was clicked based on text
             if getattr(segment_item, 'text', '') == 'Zoznam':
                 self.switch_view('list')
             elif getattr(segment_item, 'text', '') == 'Obrázky':
@@ -140,18 +125,15 @@ class SensorScreen(MDScreen):
             traceback.print_exc()
     
     def on_leave(self):
-        # Zrušenie časovača, keď opustíme obrazovku
         if hasattr(self, '_poll_event') and self._poll_event is not None:
             self._poll_event.cancel()
             self._poll_event = None
     
     def go_back(self):
-        # Návrat na hlavnú obrazovku
         if self.manager:
             self.manager.current = 'dashboard'
     
     def switch_view(self, view_mode):
-        """Prepne medzi zobrazeniami zoznamu a galérie"""
         if view_mode not in ["list", "gallery"]:
             print(f"Invalid view mode: {view_mode}")
             return
@@ -161,7 +143,6 @@ class SensorScreen(MDScreen):
             if hasattr(self.ids, 'view_manager'):
                 self.ids.view_manager.current = view_mode
             
-            # Update the view content
             self.update_view()
         except Exception as e:
             print(f"Error in switch_view: {e}")
@@ -169,27 +150,21 @@ class SensorScreen(MDScreen):
             traceback.print_exc()
     
     def update_view(self):
-        """Aktualizuje obsah aktuálneho zobrazenia"""
         if self.current_view == "list":
             self.update_sensor_list()
         elif self.current_view == "gallery":
             self.update_image_gallery()
     
     def on_sensor_states(self, instance, value):
-        """Aktualizácia obsahu pri zmene stavu senzorov"""
         self.update_view()
     
     def update_sensor_list(self):
-        """Aktualizuje zoznam senzorov"""
-        # Vyčistenie zoznamu a naplnenie novými údajmi
         self.ids.sensors_list.clear_widgets()
         
-        # Zoradenie senzorov podľa miestnosti a zariadenia
         sorted_keys = sorted(self.sensor_states.keys(), 
                            key=lambda k: (self.sensor_states[k]['room'], 
                                          self.sensor_states[k]['device_name']))
         
-        # Vytvorenie položky zoznamu pre každý senzor
         for key in sorted_keys:
             sensor_data = self.sensor_states[key]
             icon_name = self.get_sensor_icon(key.split('_')[1], sensor_data.get('triggered', False))
@@ -199,38 +174,31 @@ class SensorScreen(MDScreen):
                 icon.theme_text_color = "Custom"
                 icon.text_color = sensor_data['color']
             
-            # Vytvorenie hlavnej položky zoznamu
             item = TwoLineAvatarIconListItem(
                 text=f"{sensor_data['room']} - {sensor_data['sensor']}",
                 secondary_text=sensor_data['status']
             )
             
-            # Nastavenie farby textu podľa stavu
             if sensor_data.get('triggered', False):
                 item.theme_text_color = "Custom"
                 item.text_color = sensor_data['color']
                 item.secondary_theme_text_color = "Custom"
                 item.secondary_text_color = sensor_data['color']
                 
-                # Ak je senzor spustený a systém je zabezpečený, pridáme ikonu alarmu
                 if self.system_armed:
                     alarm_icon = IconRightWidget(icon="alarm-light")
                     alarm_icon.theme_text_color = "Custom"
                     alarm_icon.text_color = [1, 0, 0, 1]
                     item.add_widget(alarm_icon)
             
-            # Pridanie klikateľných akcií pre viac informácií
             item.bind(on_release=lambda x, k=key: self.show_sensor_detail(k))
                 
             item.add_widget(icon)
             self.ids.sensors_list.add_widget(item)
 
     def update_image_gallery(self):
-        """Aktualizuje galériu obrázkov zo senzorov"""
-        # Vyčistenie mriežky
         self.ids.image_grid.clear_widgets()
         
-        # Zhromaždenie všetkých jedinečných zariadení
         device_images = {}
         device_info = {}
         
@@ -242,14 +210,12 @@ class SensorScreen(MDScreen):
                     'room': sensor['room']
                 }
             
-            # Ak má senzor obrázok, pridaj do zoznamu
             if sensor.get('image_path'):
                 img_path = sensor['image_path']
                 if device_id not in device_images or (device_id in device_images and 
                                                     img_path['timestamp'] > device_images[device_id]['timestamp']):
                     device_images[device_id] = img_path
         
-        # Vytvorenie karty s obrázkom pre každé zariadenie
         for device_id, img_info in device_images.items():
             device = device_info.get(device_id, {'name': device_id, 'room': 'Neznáma miestnosť'})
             
@@ -264,29 +230,24 @@ class SensorScreen(MDScreen):
             
             self.ids.image_grid.add_widget(card)
         
-        # Nastavenie výšky mriežky
-        self.ids.image_grid.height = len(device_images) * 340 / 2 + 20  # Približne polovica kariet v riadku
+        self.ids.image_grid.height = len(device_images) * 340 / 2 + 20
     
     def update_sensor_states(self):
         from datetime import datetime
-        # Načítanie stavu systému
         system_state = load_state()
         self.armed_mode = system_state.get('armed_mode', 'disarmed')
         self.system_armed = self.armed_mode != 'disarmed'
         self.alarm_active = system_state.get('alarm_active', False)
         
-        # Načítanie stavu senzorov zo súboru
         states = {}
         
         try:
             devices = load_devices()
             
-            # Načítanie stavu z device_status.json
             import json
             import os
             device_status_path = os.path.join(os.path.dirname(__file__), '../data/device_status.json')
             
-            # Kontrola existencie súboru
             if not os.path.exists(device_status_path):
                 print(f"Súbor device_status.json neexistuje na {device_status_path}")
                 self.sensor_states = {}
@@ -296,15 +257,13 @@ class SensorScreen(MDScreen):
             with open(device_status_path, 'r', encoding='utf-8') as f:
                 device_states = json.load(f)
                 
-            # Transformácia senzorov pre zobrazenie
             for device in devices:
-                device_id = device['id']  # Možno bude potrebné upraviť podľa skutočného kľúča v dátach
+                device_id = device['id']
                 if device_id in device_states:
                     device_name = device['name'] if 'name' in device else device_id
                     room = device.get('room', 'Neznáma miestnosť')
                     
                     for sensor_type, status in device_states[device_id].items():
-                        # Preskočíme nerelevantné kľúče
                         if sensor_type not in ['motion', 'door', 'window']:
                             continue
                             
@@ -312,14 +271,11 @@ class SensorScreen(MDScreen):
                         state_text = self.get_state_text(sensor_type, status)
                         state_color = self.get_state_color(sensor_type, status)
                         
-                        # Určenie, či je senzor v stave, ktorý spúšťa alarm
                         triggered = (sensor_type == 'motion' and status == 'DETECTED') or \
                                     (sensor_type in ['door', 'window'] and status == 'OPEN')
                         
-                        # Stav alarmu pre daný senzor
                         alarm_state = triggered and self.system_armed
                         if self.armed_mode == 'armed_home' and sensor_type == 'motion':
-                            # V režime "Doma" ignorujeme pohybové senzory
                             alarm_state = False
                         
                         states[f"{device_id}_{sensor_type}"] = {
@@ -365,11 +321,11 @@ class SensorScreen(MDScreen):
     
     def get_state_color(self, sensor_type, status):
         if sensor_type == 'motion' and status == 'DETECTED':
-            return [1, 0, 0, 1]  # červená
+            return [1, 0, 0, 1]
         elif sensor_type in ['door', 'window'] and status == 'OPEN':
-            return [1, 0, 0, 1]  # červená
+            return [1, 0, 0, 1]
         else:
-            return [0, 0.7, 0, 1]  # zelená
+            return [0, 0.7, 0, 1]
     
     def get_sensor_icon(self, sensor_type, triggered=False):
         if sensor_type == 'motion':
@@ -382,13 +338,11 @@ class SensorScreen(MDScreen):
             return 'devices'
     
     def find_latest_image(self, device_id):
-        """Nájde najnovší obrázok pre dané zariadenie"""
         images_dir = os.path.join(os.path.dirname(__file__), '../data/images')
         
         if not os.path.exists(images_dir):
             return None
             
-        # Hľadanie všetkých obrázkov pre dané zariadenie
         device_images = []
         for filename in os.listdir(images_dir):
             if filename.startswith(f"{device_id}_") and filename.endswith('.jpg'):
@@ -396,7 +350,6 @@ class SensorScreen(MDScreen):
                 timestamp = os.path.getmtime(image_path)
                 device_images.append((image_path, timestamp))
         
-        # Zoradenie podľa času (najnovšie prvé)
         if device_images:
             device_images.sort(key=lambda x: x[1], reverse=True)
             return {'path': device_images[0][0], 'timestamp': device_images[0][1]}
@@ -404,13 +357,11 @@ class SensorScreen(MDScreen):
         return None
     
     def show_sensor_detail(self, sensor_key):
-        """Zobrazí detailný dialóg o senzore"""
         if sensor_key not in self.sensor_states:
             return
             
         sensor = self.sensor_states[sensor_key]
         
-        # Vytvorenie informácií o stave alarmu
         alarm_info = ""
         if self.system_armed:
             if sensor['alarm_state']:
@@ -427,7 +378,6 @@ class SensorScreen(MDScreen):
             else:
                 alarm_info = "Senzor je v normálnom stave."
         
-        # Pridanie informácie o dostupnom obrázku
         image_info = ""
         if sensor.get('image_path'):
             image_info = "\n\nK dispozícii je zachytený obrázok."
@@ -441,7 +391,6 @@ Stav: {sensor['status']}
 {alarm_info}{image_info}
         """
         
-        # Vytvorenie tlačidiel dialógu
         buttons = [
             MDFlatButton(
                 text="ZATVORIŤ",
@@ -451,7 +400,6 @@ Stav: {sensor['status']}
             )
         ]
         
-        # Ak je alarm aktívny, pridáme tlačidlo na jeho zastavenie
         if self.alarm_active and sensor['alarm_state']:
             buttons.append(
                 MDFlatButton(
@@ -462,7 +410,6 @@ Stav: {sensor['status']}
                 )
             )
         
-        # Ak má senzor obrázok, pridáme tlačidlo pre jeho zobrazenie
         if sensor.get('image_path'):
             buttons.append(
                 MDFlatButton(
@@ -473,7 +420,6 @@ Stav: {sensor['status']}
                 )
             )
         
-        # Vytvorenie dialógu
         self.dialog = MDDialog(
             title=f"{sensor['sensor']} - {sensor['room']}",
             text=content,
@@ -482,17 +428,13 @@ Stav: {sensor['status']}
         self.dialog.open()
     
     def show_image(self, image_path, timestamp):
-        """Zobrazí obrázok zo senzora/kamery"""
         if hasattr(self, 'dialog') and self.dialog:
             self.dialog.dismiss()
             
-        # Vytvorenie obsahu dialógu pre obrázok
         content = ImageViewerDialog(image_path=image_path, timestamp=timestamp)
         
-        # Vytvorenie referencie na content objekt pre použitie v tlačidlách
         self.image_content = content
         
-        # Tlačidlá pre dialóg
         buttons = [
             MDFlatButton(
                 text="ZATVORIŤ",
@@ -518,18 +460,14 @@ Stav: {sensor['status']}
         self.image_dialog.open()
     
     def toggle_fullscreen(self):
-        """Prepína medzi normálnym a fullscreen režimom pre náhľad obrázku"""
         if hasattr(self, 'image_content') and self.image_content:
             self.image_content.toggle_fullscreen()
             
-            # Aktualizácia textu tlačidla podľa aktuálneho stavu
             for btn in self.image_dialog.buttons:
                 if btn.text == "FULLSCREEN" or btn.text == "UKONČIŤ FULLSCREEN":
                     btn.text = "UKONČIŤ FULLSCREEN" if self.image_content.is_fullscreen else "FULLSCREEN"
     
     def stop_alarm_and_dismiss(self):
-        """Zastaví alarm a zatvorí dialóg"""
         ns.stop_alarm()
         self.dialog.dismiss()
-        # Aktualizácia zobrazenia
         self.update_sensor_states()

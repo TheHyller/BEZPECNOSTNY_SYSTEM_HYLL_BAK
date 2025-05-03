@@ -104,11 +104,11 @@ let systemState = {}; // Bude obsahovať aktuálny stav systému
 
 function updateUI() {
     fetch('/api/state').then(r=>r.json()).then(state => {
-        // Keep previous state to detect changes
+        // Uloženie predchádzajúceho stavu na detekciu zmien
         const prevState = structuredClone(systemState);
         systemState = state;
         
-        // Cache DOM elements
+        // Uloženie DOM elementov do premenných
         const status = document.getElementById('status');
         const statusPanel = document.getElementById('statusPanel');
         const pinSection = document.getElementById('pinSection');
@@ -121,7 +121,7 @@ function updateUI() {
         const deviceCount = document.getElementById('deviceCount');
         const lastUpdate = document.getElementById('lastUpdate');
         
-        // Aktualizácia štatistík - tu by sme mali volať API na získanie údajov zo senzorov pre počet aktívnych
+        // Aktualizácia štatistík zo senzorov
         updateSensorStats();
         
         // Aktualizácia režimu systému
@@ -131,7 +131,7 @@ function updateUI() {
         const countdownDeadline = state.alarm_countdown_deadline || 0;
         const triggerMessage = state.alarm_trigger_message || '';
         
-        // Explicitly hide countdown if not active
+        // Explicitne skryť odpočet, ak nie je aktívny
         if (!countdownActive && !alarmActive) {
             countdown.style.display = 'none';
             countdown.innerText = '';
@@ -229,11 +229,11 @@ function updateSensorStats() {
     fetch('/api/sensors').then(r=>r.json()).then(data => {
         const deviceCount = document.getElementById('deviceCount');
         
-        // If metrics are provided directly from the API, use them
+        // Ak sú metriky poskytnuté priamo z API, použite ich
         if (data.metrics) {
             deviceCount.innerText = data.metrics.total_devices;
         } 
-        // Fallback to manual calculation if metrics aren't provided
+        // Záložné riešenie na manuálny výpočet, ak metriky nie sú poskytnuté
         else if (data.sensors) {
             // Počet zariadení
             const uniqueDevices = new Set();

@@ -63,8 +63,9 @@ Modul SEND funguje ako sofistikovaná jednotka zberu dát, komunikujúca s fyzic
 - **Správa trvalého pripojenia**: Implementuje pokročilé stratégie opätovného pripojenia s algoritmami exponenciálneho odstupu
 
 **Hlavné súbory:**
-- `SEND/SEND.py`: Hlavná implementácia pre senzory a funkcie kamery Raspberry Pi
-- `SEND/config.json`: Konfiguračné parametre pre senzory, MQTT a nastavenia kamery
+- `APP/SEND/SEND.py`: Hlavná implementácia pre senzory a funkcie kamery Raspberry Pi
+- `APP/SEND/config.json`: Konfiguračné parametre pre senzory, MQTT a nastavenia kamery
+- `APP/SEND/TESTER.py`: Testovací program pre simuláciu rôznych senzorových udalostí
 
 ### 3.2 Modul ESP_SEND (ESP8266/ESP32)
 
@@ -78,7 +79,8 @@ Modul ESP_SEND predstavuje implementáciu ľahkého senzorového uzla optimalizo
 - **Identifikácia zariadenia**: Vysiela detailné metadáta zariadenia umožňujúce automatickú integráciu
 
 **Hlavné súbory:**
-- `ESP_SEND/ESP_SEND.ino`: Implementácia Arduino pre mikrokontroléry ESP8266/ESP32
+- `APP/ESP_SEND/ESP_SEND.ino`: Implementácia Arduino pre mikrokontroléry ESP8266/ESP32
+- `APP/ESP_SEND/ESP_TESTER.ino`: Testovací program pre ESP moduly
 
 ### 3.3 Modul REC (Prijímač)
 
@@ -91,13 +93,25 @@ Modul REC predstavuje centrálne inteligentné centrum systému, spracováva pri
 - **Správa konfigurácie**: Centralizovaná správa systémových parametrov a konfigurácií zariadení
 - **Autentifikačný systém**: Prístupová kontrola založená na rolách pre prevádzku systému
 - **Analýza historických dát**: Zaznamenávanie udalostí s možnosťou získavania a analýzy
+- **Obrazová galéria**: Funkcia pre vizuálnu verifikáciu alarmov prostredníctvom zachytených obrázkov
 
 **Hlavné súbory:**
-- `REC/main.py`: Základná inicializácia aplikácie a spracovanie udalostí
-- `REC/mqtt_client.py`: Sofistikovaná implementácia MQTT klienta s pokročilým spracovaním chýb
-- `REC/web_app.py`: Implementácia webového rozhrania pomocou Flask
-- `REC/dashboard_screen.py`, `REC/alerts_screen.py`, atď.: Implementácie jednotlivých obrazoviek pre Kivy UI
-- `REC/config/`: Konfiguračné moduly pre zariadenia, stav systému a nastavenia
+- `APP/REC/app.py`: Základná inicializácia aplikácie a aplikačná logika
+- `APP/REC/main.py`: Hlavný vstupný bod desktopovej aplikácie
+- `APP/REC/mqtt_client.py`: Sofistikovaná implementácia MQTT klienta s pokročilým spracovaním chýb
+- `APP/REC/mqtt_discovery.py`: Implementácia systému objavovania MQTT brokerov
+- `APP/REC/notification_service.py`: Služba pre správu notifikácií
+- `APP/REC/web_app.py`: Implementácia webového rozhrania pomocou Flask
+- `APP/REC/dashboard_screen.py` a `APP/REC/dashboard_screen.kv`: Implementácia hlavnej obrazovky dashboardu
+- `APP/REC/alerts_screen.py` a `APP/REC/alerts_screen.kv`: Obrazovka pre správu a zobrazenie upozornení
+- `APP/REC/login_screen.py` a `APP/REC/login_screen.kv`: Prihlasovacia obrazovka s autentifikáciou
+- `APP/REC/sensor_screen.py` a `APP/REC/sensor_screen.kv`: Obrazovka pre detailné zobrazenie senzorov
+- `APP/REC/settings_screen.py` a `APP/REC/settings_screen.kv`: Obrazovka nastavení systému
+- `APP/REC/image_gallery.kv`: Obrazovka galérií so zachytenými obrázkami z kamier
+- `APP/REC/theme_helper.py`: Helper pre správu tém užívateľského rozhrania
+- `APP/REC/config/`: Adresár s konfiguračnými modulmi pre zariadenia, stav systému a nastavenia
+- `APP/REC/templates/`: HTML šablóny pre webové rozhranie Flask
+- `APP/REC/sounds/`: Zvukové súbory pre notifikácie a alarmy
 
 ## 4. Komunikačný protokol
 
@@ -155,17 +169,17 @@ Tento prístup eliminuje požiadavky na manuálnu konfiguráciu, čím uľahčuj
 
 Systém využíva konfiguráciu založenú na JSON a ukladanie stavov:
 
-- `data/devices.json`: Inventár zariadení a metadáta
-- `data/device_status.json`: Aktuálny prevádzkový stav všetkých zariadení
-- `data/system_state.json`: Systémové stavové premenné
-- `data/settings.json`: Používateľsky konfigurovateľné systémové parametre
-- `data/alerts.log`: Chronologický záznam bezpečnostných udalostí
-- `data/mqtt_config.json`: Konfiguračné nastavenia MQTT pripojenia
+- `APP/data/devices.json`: Inventár zariadení a metadáta
+- `APP/data/device_status.json`: Aktuálny prevádzkový stav všetkých zariadení
+- `APP/data/system_state.json`: Systémové stavové premenné
+- `APP/data/settings.json`: Používateľsky konfigurovateľné systémové parametre
+- `APP/data/alerts.log`: Chronologický záznam bezpečnostných udalostí
+- `APP/data/mqtt_config.json`: Konfiguračné nastavenia MQTT pripojenia
 
 ### 5.2 Ukladanie obrázkov
 
 Obrázky zachytené kamerou sú uložené s nasledujúcou nomenklatúrou:
-`data/images/{device_id}_{timestamp}.jpg`
+`APP/data/images/{device_id}_{timestamp}.jpg`
 
 ## 6. Používateľské rozhrania
 
@@ -173,11 +187,14 @@ Obrázky zachytené kamerou sú uložené s nasledujúcou nomenklatúrou:
 
 Desktopová aplikácia prezentuje intuitívne používateľské rozhranie pozostávajúce z viacerých špecializovaných obrazoviek:
 
-- **Dashboard obrazovka**: Prehľad systému s kľúčovými indikátormi stavu
-- **Obrazovka senzorov**: Detailné zobrazenie stavu senzorov s historickými údajmi
-- **Obrazovka upozornení**: Chronologický zoznam bezpečnostných udalostí so správou upozornení
-- **Obrazovka nastavení**: Konfiguračné parametre systému
-- **Prihlasovacia obrazovka**: Autentifikačné rozhranie s kontrolou prístupu založenou na rolách
+- **Dashboard obrazovka** (`APP/REC/dashboard_screen.py`/`APP/REC/dashboard_screen.kv`): Prehľad systému s kľúčovými indikátormi stavu
+- **Obrazovka senzorov** (`APP/REC/sensor_screen.py`/`APP/REC/sensor_screen.kv`): Detailné zobrazenie stavu senzorov s historickými údajmi
+- **Obrazovka upozornení** (`APP/REC/alerts_screen.py`/`APP/REC/alerts_screen.kv`): Chronologický zoznam bezpečnostných udalostí so správou upozornení
+- **Obrazovka nastavení** (`APP/REC/settings_screen.py`/`APP/REC/settings_screen.kv`): Konfiguračné parametre systému
+- **Prihlasovacia obrazovka** (`APP/REC/login_screen.py`/`APP/REC/login_screen.kv`): Autentifikačné rozhranie s kontrolou prístupu založenou na rolách
+- **Obrazová galéria** (`APP/REC/image_gallery.kv`): Vizuálna verifikácia alarmov cez zachytené obrázky
+
+Každá obrazovka je implementovaná ako samostatný modul s oddelením logiky (.py súbor) a prezentácie (.kv súbor) v súlade s návrhovým vzorom Model-View-Controller.
 
 ### 6.2 Webové rozhranie
 
@@ -208,6 +225,8 @@ Systém poskytuje rozsiahle REST API pre interakciu s bezpečnostným systémom:
 - **POST /api/mqtt/reconnect**: Opätovné pripojenie MQTT klienta
 - **POST /api/mqtt/command**: Odoslanie príkazu na konkrétne zariadenie cez MQTT
 
+Webové rozhranie je dostupné na adrese http://localhost:5000 alebo http://(IP-Rec_jednotka):5000.
+
 ## 7. Technické detaily implementácie
 
 ### 7.1 Viacvláknová architektúra
@@ -237,6 +256,15 @@ Systém implementuje niekoľko bezpečnostných opatrení:
 - Last Will and Testament (LWT) pre spoľahlivé sledovanie stavu zariadení
 - Konfigurovateľné úrovne kvality služieb pre garancie doručenia správ
 - Mechanizmus odstupňovaného zamykania po viacerých neúspešných pokusoch o zadanie PIN kódu
+
+### 7.4 Témový helper (Theme Helper)
+
+Systém obsahuje sofistikovaný manažment tém (definovaný v `APP/REC/theme_helper.py`), ktorý poskytuje konzistentný vizuálny štýl cez všetky obrazovky aplikácie. Tento modul umožňuje:
+
+- Prepínanie medzi svetlou a tmavou témou
+- Prispôsobenie farebnej palety
+- Centralizovanú definíciu štýlov widgetov
+- Dynamickú zmenu témy za behu aplikácie
 
 ## 8. Konfiguračné parametre
 
@@ -281,12 +309,20 @@ Parametre senzorov sú konfigurované prostredníctvom priradení GPIO pinov a n
 
 1. Nainštalujte MQTT broker podľa mosquitto_install.md
 2. Nainštalujte Python závislosti pomocou súborov requirements:
-   - `pip install -r requirements.txt`
-   - Pre Raspberry Pi: `pip install -r requirements_pi.txt`
-3. Nakonfigurujte systémové parametre v súboroch data/*.json
-4. Naprogramujte ESP zariadenia pomocou Arduino IDE s ESP_SEND.ino
-5. Nasaďte Raspberry Pi jednotky so SEND.py
-6. Spustite prijímač pomocou main.py
+   - `pip install -r APP/requirements.txt`
+   - Pre Raspberry Pi: `pip install -r APP/requirements_pi.txt`
+3. Nakonfigurujte systémové parametre v súboroch APP/data/*.json
+4. Naprogramujte ESP zariadenia pomocou Arduino IDE s APP/ESP_SEND/ESP_SEND.ino
+5. Nasaďte Raspberry Pi jednotky s APP/SEND/SEND.py
+6. Spustite prijímač pomocou APP/REC/main.py alebo APP/REC/web_app.py
+
+### 9.3 Automatické spustenie
+
+Systém poskytuje skripty pre automatické spustenie pri štarte systému:
+
+- `APP/autostart_pi.sh`: Automatické spustenie na Raspberry Pi (Linux)
+- `APP/autostart_win.bat`: Automatické spustenie na Windows
+- `APP/stop_pi.sh`: Zastavenie bežiacej aplikácie na Raspberry Pi
 
 ## 10. Prevádzka systému
 
@@ -341,3 +377,8 @@ Potenciálne vylepšenia pre budúce verzie:
 - Cloudová integrácia pre vzdialené monitorovanie
 - Integrácia hlasového asistenta
 - Rozšírené typy senzorov (dym, voda, plyn)
+- Mobilná aplikácia pre vzdialený prístup
+- Integrácia s populárnymi smart-home systémami
+- Pokročilá analýza dát a prediktívne modelovanie pre identifikáciu potenciálnych bezpečnostných rizík
+- Implementácia biometrickej autentifikácie
+- Geografické zónovanie a podpora pre viacero lokácií

@@ -32,7 +32,6 @@ class MQTTClient:
                 return json.load(f)
         except Exception as e:
             print(f"Chyba pri načítaní MQTT konfigurácie: {e}")
-            # Predvolené nastavenia
             return {
                 "broker": "localhost",
                 "port": 1883,
@@ -75,7 +74,6 @@ class MQTTClient:
         client_id_settings = self.config.get('client_id_settings', {})
         prefix = self.config.get('client_id_prefix', 'home_security_')
         
-        # Načítanie existujúceho ID klienta, ak existuje a je nakonfigurované
         if client_id_settings.get('persistent_storage', False):
             storage_path = os.path.join(os.path.dirname(__file__), 
                                        client_id_settings.get('storage_path', '../data/mqtt_client_id.txt'))
@@ -88,7 +86,6 @@ class MQTTClient:
             except Exception as e:
                 print(f"Chyba pri načítaní ID klienta: {e}")
         
-        # Generovanie nového ID klienta
         if client_id_settings.get('use_random_suffix', True):
             random_suffix = ''.join(random.choices('0123456789abcdef', k=8))
             timestamp = int(time.time())
@@ -96,7 +93,6 @@ class MQTTClient:
         else:
             client_id = f"{prefix}receiver_{int(time.time())}"
         
-        # Uloženie ID klienta, ak je nakonfigurované
         if client_id_settings.get('persistent_storage', False):
             try:
                 storage_dir = os.path.dirname(storage_path)
@@ -116,12 +112,9 @@ class MQTTClient:
         max_delay = reconnect_settings.get('max_delay', 120)
         
         if reconnect_settings.get('use_exponential_backoff', True):
-            # Exponenciálny backoff
             delay = min(base_delay * (2 ** self.reconnect_attempt), max_delay)
-            # Pridať náhodnú odchýlku (jitter) pre rozloženie záťaže
             delay = delay * (0.8 + 0.4 * random.random())
         else:
-            # Lineárny backoff
             delay = min(base_delay * self.reconnect_attempt, max_delay)
             if delay < base_delay:
                 delay = base_delay
@@ -134,22 +127,17 @@ class MQTTClient:
             print("MQTT klient už beží")
             return
         
-        # Vytvorenie jedinečného ID klienta
         client_id = self._generate_client_id()
         clean_session = self.config.get('clean_session', True)
         
-        # Vytvorenie MQTT klienta
         self.client = mqtt.Client(client_id=client_id, clean_session=clean_session)
         
-        # Nastavenie prihlasovacích údajov, ak existujú
         if self.config.get('username') and self.config.get('password'):
             self.client.username_pw_set(self.config['username'], self.config['password'])
         
-        # Nastavenie TLS, ak je povolené
         if self.config.get('use_tls', False):
             self.client.tls_set()
         
-        # Nastavenie Last Will and Testament (LWT), ak je povolené
         last_will = self.config.get('last_will', {})
         if last_will.get('enabled', False):
             lwt_topic = last_will.get('topic', f"{self.config['topics']['status']}/receiver")
@@ -165,12 +153,10 @@ class MQTTClient:
             self.client.will_set(lwt_topic, lwt_msg, qos=lwt_qos, retain=lwt_retain)
             print(f"Nastavená Last Will správa na téme {lwt_topic}")
         
-        # Nastavenie callback funkcií
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message = self._on_message
         
-        # Spustenie klienta v samostatnom vlákne
         threading.Thread(target=self._connect_and_loop, daemon=True, 
                          name="MQTTClientThread").start()
         print(f"MQTT klient spustený s ID: {client_id}, clean session: {clean_session}")
@@ -178,11 +164,10 @@ class MQTTClient:
     def _connect_and_loop(self):
         """Pripojí sa k brokeru a spustí smyčku MQTT klienta."""
         reconnect_settings = self.config.get('reconnect_settings', {})
-        max_retries = reconnect_settings.get('max_retries', 0)  # 0 = nekonečno
+        max_retries = reconnect_settings.get('max_retries', 0)
         self.reconnect_attempt = 0
         
         while True:
-            # Kontrola maximálneho počtu pokusov
             if max_retries > 0 and self.reconnect_attempt >= max_retries:
                 print(f"Dosiahnutý maximálny počet pokusov o pripojenie ({max_retries}). Ukončujem...")
                 break
@@ -193,7 +178,6 @@ class MQTTClient:
                       f"(pokus č. {self.reconnect_attempt + 1}, keep-alive: {keep_alive}s)...")
                 
                 self.client.connect(self.config['broker'], self.config['port'], keepalive=keep_alive)
-                # Reset počítadla pokusov po úspešnom pripojení
                 self.reconnect_attempt = 0
                 self.client.loop_forever()
             except Exception as e:
@@ -213,12 +197,10 @@ class MQTTClient:
             self.connected = True
             print(f"Úspešne pripojený k MQTT brokeru ({self.config['broker']})")
             
-            # Prihlásenie na témy
             for topic_type, topic in self.config['topics'].items():
                 client.subscribe(f"{topic}/#", qos=self.config.get('qos', 1))
                 print(f"Prihlásený na téme: {topic}/#")
             
-            # Publikovanie stavu online
             self.publish_status("ONLINE", "Prijímač je pripravený")
         else:
             print(f"Neúspešné pripojenie k MQTT brokeru, kód: {rc}")
@@ -238,21 +220,17 @@ class MQTTClient:
             topic = message.topic
             payload = message.payload.decode('utf-8')
             
-            # Spracovanie správy na základe témy
             topic_base = topic.split('/')[0:3]
             topic_base = '/'.join(topic_base)
             
-            # Pokus o deserializáciu JSON, ak sa nepodarí, použije sa surová správa
             try:
                 payload_data = json.loads(payload)
             except json.JSONDecodeError:
                 payload_data = {"raw": payload}
                 
-            # Volanie všeobecných callback funkcií pre všetky správy
             for callback in self.callbacks.get("on_message", []):
                 callback(topic, payload_data)
                 
-            # Spracovanie podľa typu správy
             if topic_base == self.config['topics']['sensor']:
                 self._process_sensor_message(topic, payload_data)
             elif topic_base == self.config['topics']['image']:
@@ -267,31 +245,25 @@ class MQTTClient:
     def _process_sensor_message(self, topic, payload):
         """Spracuje správu zo senzora."""
         try:
-            # Extrakcia ID zariadenia z témy
             device_id = topic.split('/')[-1]
             data = payload
             
             print(f"Prijatá správa zo senzora {device_id}: {data}")
             
-            # Aktualizácia stavu zariadenia
             device_status = {}
             if device_id not in device_status:
                 device_status[device_id] = {}
             
-            # Aktualizácia stavov senzorov
             for sensor_type, status in data.items():
                 if sensor_type in ['motion', 'door', 'window']:
                     device_status[device_id][sensor_type] = status
             
-            # Aktualizácia stavu zariadenia v JSON súbore
             update_device_status(device_status)
             
-            # Aktualizácia systémového stavu
             if any(status == 'DETECTED' for status in data.values()) or \
                any(status == 'OPEN' for status in data.values()):
                 update_state("alert", True)
             
-            # Volanie callback funkcií
             for callback in self.callbacks["on_sensor_message"]:
                 callback(device_id, data)
                 
@@ -307,11 +279,9 @@ class MQTTClient:
             print(f"Prijatá správa s obrázkom od zariadenia {device_id}")
             
             if 'image_data' in data and 'metadata' in data:
-                # Dekódovanie obrázku z Base64
                 image_data = base64.b64decode(data['image_data'])
                 metadata = data['metadata']
                 
-                # Uloženie obrázku do súboru
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 image_dir = os.path.join(os.path.dirname(__file__), '../data/images')
                 os.makedirs(image_dir, exist_ok=True)
@@ -322,7 +292,6 @@ class MQTTClient:
                 
                 print(f"Obrázok uložený: {image_path}")
                 
-                # Volanie callback funkcií
                 for callback in self.callbacks["on_image_message"]:
                     callback(device_id, image_path, metadata)
         except Exception as e:
@@ -336,11 +305,9 @@ class MQTTClient:
             
             print(f"Prijatý stav zariadenia {device_id}: {data}")
             
-            # Volanie callback funkcií
             for callback in self.callbacks["on_status_message"]:
                 callback(device_id, data)
                 
-            # Spracovanie požiadavky na discovery, ak zariadenie posiela DISCOVER správu
             if isinstance(data, dict) and data.get('status') == 'DISCOVER':
                 print(f"Prijatá požiadavka na discovery od {device_id}")
                 self.publish_control_message(device_id, "DISCOVERY_RESPONSE", {
@@ -357,12 +324,10 @@ class MQTTClient:
             print("MQTT klient nie je pripojený, nemôžem spustiť službu detekcie zariadení")
             return
             
-        # Prihlásenie na discovery tému
         discovery_topic = f"{self.config['topics']['status']}/discovery"
         self.client.subscribe(discovery_topic, qos=self.config.get('qos', 1))
         print(f"Spustená služba detekcie zariadení, počúvam na téme {discovery_topic}")
         
-        # Publikovanie dostupnosti prijímača pre nové zariadenia
         self.publish_status("ONLINE", "Prijímač je pripravený na detekciu zariadení")
     
     def publish_control_message(self, target_device, command, data=None):
@@ -424,11 +389,8 @@ class MQTTClient:
         """Zastaví MQTT klienta."""
         if self.client and self.connected:
             print("Zastavujem MQTT klienta...")
-            # Publikovanie stavu offline
             self.publish_status("OFFLINE", "Prijímač sa vypína")
-            # Odpojenie od brokera
             self.client.disconnect()
-            # Zastavenie smyčky
             self.client.loop_stop()
             self.client = None
             self.connected = False

@@ -150,51 +150,34 @@ Webová aplikácia poskytuje API pre integráciu s inými systémami. Podrobnú 
 
 ## 📁 Štruktúra projektu
 ```
-├── APP/                # Hlavný adresár aplikácie
-│   ├── SEND/           # Raspberry Pi senzorický modul
-│   │   ├── SEND.py     # Hlavný program pre zber dát
-│   │   ├── TESTER.py   # Testovací program
-│   │   └── config.json # Konfiguračný súbor
-│   ├── ESP_SEND/       # ESP8266 senzorický modul
-│   │   ├── ESP_SEND.ino # Hlavný program pre ESP
-│   │   └── ESP_TESTER.ino # Testovací program
-│   ├── REC/            # Prijímací modul
-│   │   ├── app.py      # Základná aplikačná logika
-│   │   ├── main.py     # Hlavný program desktop aplikácie
-│   │   ├── mqtt_client.py # MQTT klient implementácia
-│   │   ├── mqtt_discovery.py # MQTT objavovací mechanizmus
-│   │   ├── notification_service.py # Služba pre notifikácie
-│   │   ├── web_app.py  # Webová aplikácia
-│   │   ├── alerts_screen.py # Obrazovka upozornení
-│   │   ├── dashboard_screen.py # Dashboard obrazovka
-│   │   ├── login_screen.py # Prihlasovacia obrazovka
-│   │   ├── sensor_screen.py # Obrazovka senzorov
-│   │   ├── settings_screen.py # Obrazovka nastavení
-│   │   ├── theme_helper.py # Pomocník pre témy
-│   │   ├── config/     # Konfiguračné moduly
-│   │   ├── templates/  # HTML šablóny pre web
-│   │   └── sounds/     # Zvukové notifikácie
-│   ├── data/           # Dátové súbory
-│   │   ├── alerts.log  # História upozornení
-│   │   ├── device_status.json # Stav zariadení
-│   │   └── settings.json # Nastavenia
-│   ├── autostart_pi.sh # Skript pre automatické spustenie na Raspberry Pi
-│   ├── autostart_win.bat # Skript pre automatické spustenie na Windows
-│   ├── mosquitto.conf  # Konfiguračný súbor pre MQTT broker
-│   ├── requirements.txt # Závislosti pre hlavnú aplikáciu
-│   ├── requirements_pi.txt # Závislosti pre Raspberry Pi
-│   └── stop_pi.sh      # Skript pre zastavenie aplikácie na Raspberry Pi
-├── uml/                # UML diagramy a dokumentácia
-│   ├── alarm_response_activity.plantuml # Aktivitný diagram odozvy alarmu
-│   ├── component_diagram.plantuml # Komponentný diagram
-│   ├── deployment_diagram.plantuml # Diagram nasadenia
-│   ├── mqtt_communication_structure.plantuml # Štruktúra MQTT komunikácie
-│   └── ...            # Ďalšie UML diagramy
-├── LICENSE            # Licenčný súbor
-├── README.md          # Tento súbor s prehľadom projektu
-├── install_instructions.md # Podrobné pokyny na inštaláciu
-├── mosquitto_install.md # Návod na inštaláciu MQTT brokera
-└── technicka_dokumentacia.md # Technická dokumentácia systému
+├── APP/                # Hlavný adresár aplikácie obsahujúci všetky moduly systému
+│   ├── SEND/           # Raspberry Pi senzorický modul pre monitorovanie bezpečnostných senzorov
+│   │   ├── SEND.py     # Hlavný program pre zber a odosielanie dát zo senzorov cez MQTT
+│   │   ├── TESTER.py   # Testovací program na simuláciu senzorov bez fyzického hardvéru
+│   │   └── config.json # Konfiguračný súbor s nastaveniami senzorov, MQTT a ďalších parametrov
+│   ├── ESP_SEND/       # ESP8266 senzorický modul pre alternatívne IoT zariadenia
+│   │   ├── ESP_SEND.ino # Hlavný program pre ESP zariadenia na zber a odosielanie dát
+│   │   └── ESP_TESTER.ino # Testovací program pre ESP zariadenia bez fyzických senzorov
+│   ├── REC/            # Prijímací modul pre spracovanie dát a užívateľské rozhranie
+│   │   ├── app.py      # Základná aplikačná logika a definícia aplikačných tried
+│   │   ├── main.py     # Hlavný program desktop aplikácie s inicializáciou komponentov
+│   │   ├── mqtt_client.py # MQTT klient implementácia pre príjem a odosielanie správ
+│   │   ├── mqtt_discovery.py # MQTT objavovací mechanizmus pre automatickú detekciu zariadení
+│   │   ├── notification_service.py # Služba pre notifikácie a upozornenia rôznymi kanálmi
+│   │   ├── web_app.py  # Webová aplikácia poskytujúca prístup cez webový prehliadač
+│   │   ├── alerts_screen.py # Obrazovka upozornení zobrazujúca históriu alarmov
+│   │   ├── dashboard_screen.py # Dashboard obrazovka s prehľadom stavu celého systému
+│   │   ├── login_screen.py # Prihlasovacia obrazovka pre autentifikáciu užívateľov
+│   │   ├── sensor_screen.py # Obrazovka senzorov pre detailnú správu senzorov
+│   │   ├── settings_screen.py # Obrazovka nastavení systému a užívateľských preferencií
+│   │   ├── theme_helper.py # Pomocník pre témy a vizuálne nastavenia aplikácie
+│   │   ├── config/     # Konfiguračné moduly pre správu nastavení systému
+│   │   ├── templates/  # HTML šablóny pre webové rozhranie aplikácie
+│   │   └── sounds/     # Zvukové notifikácie pre alarmy a upozornenia
+│   ├── data/           # Dátové súbory a úložisko pre stav systému
+│   │   ├── alerts.log  # História upozornení a bezpečnostných incidentov
+│   │   ├── device_status.json # Stav zariadení a ich aktuálne hodnoty
+│   │   └── settings.json # Nastavenia celého systému a užívateľské konfigurácie
 ```
 
 ## 🤝 Prispievanie

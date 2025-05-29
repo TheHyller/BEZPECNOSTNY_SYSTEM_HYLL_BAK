@@ -212,6 +212,6 @@ Tento projekt je distribuovaný pod licenciou MIT. Pre viac informácií si pozr
 ## 📞 Kontakt
 Branislav Hýll - [hyll@hylllab.eu](mailto:hyll@hylllab.eu)
 
-Projekt Link: [[https://github.com/Hyller/home-security-system](https://github.com/Hyller/home-security-system)](https://github.com/TheHyller/BEZPECNOSTNY_SYSTEM_HYLL_BAK)
+Projekt Link: [(https://github.com/TheHyller/BEZPECNOSTNY_SYSTEM_HYLL_BAK)]
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/TheHyller/BEZPECNOSTNY_SYSTEM_HYLL_BAK)
 ---

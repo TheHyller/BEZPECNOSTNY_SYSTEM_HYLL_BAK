@@ -31,10 +31,10 @@ Tento domáci bezpečnostný systém umožňuje komplexné monitorovanie a sprá
 - 🔔 Notifikácie pri detekcii narušenia
 - 📊 Dashboard pre prehľadnú vizualizáciu stavu systému
 - 📱 Mobilné a webové rozhranie pre vzdialený prístup
-- 📈 História udalostí a generovanie reportov
+- 📈 História udalostí
 - 🔧 Konfigurovateľné nastavenia a pravidlá
 - 🔍 Obrazová galéria pre vizuálnu verifikáciu alarmov
-- 🔑 Robustný autentifikačný systém s kontrolou prístupu
+- 🔑 Autentifikačný systém s kontrolou prístupu
 
 ## 🏗️ Architektúra systému
 Systém sa skladá z troch hlavných modulov:
@@ -47,7 +47,7 @@ Komunikácia medzi modulmi prebieha cez protokol MQTT, čo zabezpečuje rýchlu 
 
 ## 📋 Požiadavky
 - Python 3.7+
-- Raspberry Pi 3/4 (pre SEND modul)
+- Raspberry Pi 4/5 (pre SEND modul)
 - ESP8266 (pre ESP_SEND modul)
 - MQTT Broker (napr. Mosquitto)
 - Kivy (pre desktop aplikáciu)

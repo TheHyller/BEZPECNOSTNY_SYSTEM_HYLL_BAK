@@ -6,10 +6,10 @@
   },
   "email_settings": {
     "enabled": true,
-    "smtp_server": "smtp.gmail.com",
+    "smtp_server": "",
     "smtp_port": 587,
-    "username": "sendmailhyll@gmail.com",
-    "password": "kmav ouvd fhwy wblu",
-    "recipient": "sendmailhyll@gmail.com"
+    "username": "",
+    "password": "",
+    "recipient": ""
   }
 }
